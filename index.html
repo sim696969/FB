@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The F&B Order Kiosk</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and scrollbar styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Custom scrollbar for menu and cart */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #ef4444;
+            border-radius: 3px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background-color: #f1f5f9;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <div id="app" class="flex flex-col lg:flex-row min-h-screen bg-gray-50">
+        
+        <!-- Main Content (Menu) -->
+        <main class="flex-grow p-4 lg:p-8 bg-white lg:rounded-l-xl shadow-2xl overflow-y-auto custom-scroll">
+            <header class="mb-6 lg:mb-10 border-b pb-4">
+                <h1 class="text-4xl font-extrabold text-red-600 tracking-tight flex items-center">
+                    <i data-lucide="coffee" class="w-8 h-8 mr-3"></i>
+                    The Daily Grind Menu
+                </h1>
+                <p class="text-gray-500 mt-1">Place your order. Everything is freshly prepared!</p>
+            </header>
+
+            <div id="loading-spinner" class="text-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
+                <p class="text-gray-500 mt-4">Loading menu from server...</p>
+            </div>
+            
+            <!-- Firebase Error Message -->
+            <div id="firebase-error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg hidden" role="alert">
+                <p class="font-bold">Database Connection Warning</p>
+                <p>Order saving is disabled because the Firebase configuration is missing. Orders will not be saved.</p>
+            </div>
+
+            <!-- Category Filter Bar -->
+            <div id="filter-container" class="mb-6 flex flex-wrap gap-2 hidden">
+                <!-- Filter buttons will be injected here -->
+            </div>
+
+            <!-- Menu Items will be injected here -->
+            <div id="menu-container" class="space-y-8 hidden">
+                <!-- Categories will be rendered dynamically -->
+            </div>
+            
+            <!-- Order Status Modal -->
+            <div id="status-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="document.getElementById('status-modal').classList.add('hidden')">
+                <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">
+                    <h2 id="modal-title" class="text-2xl font-bold mb-3 text-red-600">Order Placed!</h2>
+                    <p id="modal-message" class="text-gray-700 mb-4"></p>
+                    <button type="button" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition" onclick="closeModal()">Close & New Order</button>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Shopping Cart (Sidebar) -->
+        <aside class="w-full lg:w-96 bg-gray-100 p-4 lg:p-6 shadow-inner flex flex-col">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                <i data-lucide="shopping-cart" class="w-6 h-6 mr-2"></i>
+                Your Order
+            </h2>
+
+            <!-- Cart Items List -->
+            <div id="cart-items-container" class="flex-grow space-y-3 overflow-y-auto custom-scroll pr-2 mb-4">
+                <p id="empty-cart-message" class="text-gray-500 italic text-center py-6">Your cart is empty. Add some delicious F&B!</p>
+            </div>
+
+            <!-- Tipping Feature -->
+            <div id="tipping-container" class="pt-4 border-t border-gray-300">
+                <h3 class="font-bold text-gray-700 mb-2">Add a Tip</h3>
+                <div class="flex space-x-2 mb-3">
+                    <button onclick="applyTipPercentage(0.15)" class="tip-btn px-3 py-1 text-sm rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-150" data-percent="0.15">15%</button>
+                    <button onclick="applyTipPercentage(0.20)" class="tip-btn px-3 py-1 text-sm rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-150" data-percent="0.20">20%</button>
+                    <button onclick="applyTipPercentage(0.25)" class="tip-btn px-3 py-1 text-sm rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-150" data-percent="0.25">25%</button>
+                    <button onclick="clearTip()" id="clear-tip-btn" class="tip-btn px-3 py-1 text-sm rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition duration-150 hidden">Clear Tip</button>
+                </div>
+                <div class="flex items-center mb-4">
+                    <span class="text-gray-600 mr-2">$</span>
+                    <input type="number" id="custom-tip" placeholder="Custom Tip" min="0" step="0.01"
+                           class="w-full p-2 border-2 border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition text-sm" 
+                           oninput="applyCustomTip()">
+                </div>
+                <div id="tip-display-row" class="flex justify-between items-center text-base mb-2">
+                    <span class="text-gray-600">Tip:</span>
+                    <span id="tip-amount-display" class="font-semibold text-gray-700">$0.00</span>
+                </div>
+            </div>
+            
+            <!-- Order Summary and Checkout -->
+            <div class="mt-auto pt-4 border-t border-gray-300">
+                <div class="flex justify-between items-center text-xl font-bold mb-3">
+                    <span class="text-gray-700">Total:</span>
+                    <span id="cart-total" class="text-red-600">$0.00</span>
+                </div>
+                
+                <input type="text" id="customer-name" placeholder="Your Name for the Order" 
+                       class="w-full p-3 mb-4 border-2 border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition" required>
+
+                <button id="checkout-btn" 
+                        class="w-full bg-red-600 text-white py-3 rounded-lg font-extrabold text-lg 
+                               hover:bg-red-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                    <span id="checkout-text">Place Order</span>
+                    <span id="checkout-loading" class="hidden">Processing...</span>
+                </button>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Dev helper: allow pasting a Firebase web config for quick local testing -->
+    <script>
+        (function(){
+            try {
+                const saved = localStorage.getItem('dev_firebase_config');
+                if (saved) {
+                    // Provide the same global string name the module expects
+                    window.__firebase_config = saved;
+                }
+            } catch (e) {
+                console.warn('Could not read saved firebase config', e);
+            }
+
+            // Expose helper functions for manual use from console or UI
+            window.saveFirebaseConfigDev = function() {
+                const input = prompt('Paste your Firebase Web config JSON (the object from Firebase console):');
+                if (!input) return;
+                try {
+                    JSON.parse(input);
+                    localStorage.setItem('dev_firebase_config', input);
+                    alert('Saved Firebase config to localStorage. The page will reload to apply it.');
+                    location.reload();
+                } catch (err) {
+                    alert('Invalid JSON: ' + err.message);
+                }
+            };
+
+            window.clearFirebaseConfigDev = function() {
+                localStorage.removeItem('dev_firebase_config');
+                alert('Cleared saved Firebase config. The page will reload.');
+                location.reload();
+            };
+        })();
+    </script>
+
+    <!-- Floating dev toolbar (visible only in dev/testing) -->
+    <div style="position:fixed;left:12px;bottom:12px;z-index:9999;">
+        <button onclick="saveFirebaseConfigDev()" style="background:#ef4444;color:white;padding:8px 10px;border-radius:8px;border:none;margin-right:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1)">Paste Firebase Config</button>
+        <button onclick="clearFirebaseConfigDev()" style="background:#f3f4f6;color:#111;padding:8px 10px;border-radius:8px;border:1px solid #e5e7eb">Clear</button>
+        <button onclick="downloadLastOrder()" id="download-order-btn" style="background:#10b981;color:white;padding:8px 10px;border-radius:8px;border:none;margin-left:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1);display:none">Download Last Order</button>
+    </div>
+
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, setLogLevel, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase Initialization ---
+        
+        // Global variables for Firebase services, populated in init()
+        window.db = null;
+        window.auth = null;
+        window.isFirebaseReady = false; 
+        window.userId = 'anonymous';
+        window.appId = 'default-app-id';
+
+        setLogLevel('Debug');
+        
+        // Configuration variables injected by the environment
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Reference to the error element outside the module script
+        window.firebaseErrorElement = document.getElementById('firebase-error');
+
+
+        /**
+         * Initializes Firebase and authenticates the user.
+         */
+        async function initializeFirebase() {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is missing. Firestore saving will be disabled.");
+                window.isFirebaseReady = false;
+                
+                // Show visual warning when config is missing
+                if (window.firebaseErrorElement) {
+                    window.firebaseErrorElement.classList.remove('hidden');
+                }
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                window.db = getFirestore(app);
+                window.auth = getAuth(app);
+
+                // Authentication: Use custom token if provided, otherwise sign in anonymously
+                // We don't need to await this, as the onAuthStateChanged listener handles the readiness.
+                if (initialAuthToken) {
+                    signInWithCustomToken(window.auth, initialAuthToken)
+                        .then(() => console.log("Signed in with custom token."))
+                        .catch(error => {
+                            console.error("Custom token sign-in failed:", error);
+                            // Fallback to anonymous sign-in if token fails
+                            signInAnonymously(window.auth);
+                        });
+                } else {
+                    signInAnonymously(window.auth);
+                    console.log("Signed in anonymously.");
+                }
+
+                // --- KEY FIX: Set up auth state listener to update userId and ready state ---
+                // This listener ensures we only set isFirebaseReady to true AFTER authentication is complete.
+                onAuthStateChanged(window.auth, (user) => {
+                    // This is guaranteed to fire after initial sign-in (custom or anonymous)
+                    if (user) {
+                        window.userId = user.uid;
+                    } else {
+                        // This case should be rare, but we handle it.
+                        window.userId = 'unauthenticated_' + crypto.randomUUID();
+                    }
+                    window.isFirebaseReady = true; // Firebase/Auth is now ready
+                    console.log("Firebase/Auth Ready. User ID:", window.userId);
+                    
+                    // Hide error message if initialization succeeds
+                    if (window.firebaseErrorElement) {
+                        window.firebaseErrorElement.classList.add('hidden');
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                window.isFirebaseReady = false;
+                if (window.firebaseErrorElement) {
+                    window.firebaseErrorElement.classList.remove('hidden');
+                    window.firebaseErrorElement.querySelector('p').textContent = `Order saving is disabled. Initialization failed: ${error.message}`;
+                }
+            }
+        }
+
+        /**
+         * Waits for the Firebase services to be initialized and authenticated.
+         * @returns {Promise<void>} Resolves when isFirebaseReady is true.
+         */
+        window.waitForFirebase = function() {
+            return new Promise((resolve) => {
+                if (window.isFirebaseReady) {
+                    return resolve();
+                }
+                const interval = setInterval(() => {
+                    if (window.isFirebaseReady) {
+                        clearInterval(interval);
+                        resolve();
+                    }
+                }, 100); // Check every 100ms
+            });
+        };
+
+        // --- Global Order Functionality ---
+        window.submitOrderToFirestore = async (orderPayload) => {
+            // Wait for Firebase to be ready before proceeding
+            await window.waitForFirebase();
+
+            if (!window.db) {
+                // This will throw if config was missing or auth failed. The error modal will catch this.
+                throw new Error("Firestore not initialized or connection failed.");
+            }
+
+            // Define the path for the orders collection: /artifacts/{appId}/public/data/orders
+            const orderCollectionPath = `artifacts/${window.appId}/public/data/orders`;
+            const ordersCollectionRef = collection(window.db, orderCollectionPath);
+
+            // Add metadata to the payload
+            const orderToSave = {
+                ...orderPayload,
+                timestamp: serverTimestamp(), // Use server timestamp for accurate time
+                status: 'pending',           // Initial status for kitchen view
+                userId: window.userId,       // User who placed the order
+            };
+
+            const docRef = await addDoc(ordersCollectionRef, orderToSave);
+            return { order_id: docRef.id };
+        };
+
+        // Start Firebase initialization immediately, but do NOT block the menu load
+        initializeFirebase();
+    </script>
+    
+
+    <script>
+        // Global state for the application
+        let menuData = [];
+        let cart = {}; // { itemId: { item, quantity } }
+        let subTotalAmount = 0; // The total before tip
+        let tipAmount = 0;      // The current tip amount
+        let finalTotalAmount = 0; // The total including tip
+        let activeCategory = 'All'; // State to track active filter
+
+        // --- DOM Elements ---
+        const menuContainer = document.getElementById('menu-container');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const filterContainer = document.getElementById('filter-container');
+        const cartContainer = document.getElementById('cart-items-container');
+        const emptyCartMessage = document.getElementById('empty-cart-message');
+        const cartTotalDisplay = document.getElementById('cart-total');
+        const checkoutBtn = document.getElementById('checkout-btn');
+        const customerNameInput = document.getElementById('customer-name');
+        const statusModal = document.getElementById('status-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const checkoutText = document.getElementById('checkout-text');
+        const checkoutLoading = document.getElementById('checkout-loading');
+        
+        // TIP Elements
+        const tipDisplay = document.getElementById('tip-amount-display');
+        const customTipInput = document.getElementById('custom-tip');
+        const tipButtons = document.querySelectorAll('.tip-btn');
+        const clearTipBtn = document.getElementById('clear-tip-btn');
+        const firebaseErrorElement = document.getElementById('firebase-error'); // Get this element in the main script too
+
+
+        // --- Menu Filtering Functions ---
+        
+        /**
+         * Generates filter buttons based on unique categories.
+         */
+        function renderFilters() {
+            const categories = menuData.map(item => item.category || 'Uncategorized');
+            const uniqueCategories = ['All', ...new Set(categories)];
+
+            filterContainer.innerHTML = '';
+            
+            uniqueCategories.forEach(category => {
+                const button = document.createElement('button');
+                button.textContent = category;
+                button.className = `px-4 py-2 rounded-full font-semibold text-sm transition-all duration-150`;
+
+                if (category === activeCategory) {
+                    button.classList.add('bg-red-600', 'text-white', 'shadow-lg');
+                } else {
+                    button.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-red-100');
+                }
+
+                button.onclick = () => filterMenu(category);
+                filterContainer.appendChild(button);
+            });
+
+            filterContainer.classList.remove('hidden');
+        }
+
+        /**
+         * Filters and re-renders the menu display based on the selected category.
+         * @param {string} category - The category to filter by ('All' to show everything).
+         */
+        function filterMenu(category) {
+            activeCategory = category;
+            
+            let filteredItems = menuData;
+            if (category !== 'All') {
+                filteredItems = menuData.filter(item => (item.category || 'Uncategorized') === category);
+            }
+
+            const groupedMenu = groupMenuByCategory(filteredItems);
+            renderMenu(groupedMenu);
+            renderFilters(); // Re-render buttons to update active state
+        }
+
+
+        // --- Menu Rendering Functions ---
+        
+        /**
+         * Groups an array of menu items by category.
+         * @param {Array} items 
+         * @returns {Object} Grouped items.
+         */
+        function groupMenuByCategory(items) {
+            return items.reduce((acc, item) => {
+                const category = item.category || 'Uncategorized';
+                if (!acc[category]) {
+                    acc[category] = [];
+                }
+                acc[category].push(item);
+                return acc;
+            }, {});
+        }
+
+        /**
+         * Renders a single menu item card.
+         * @param {Object} item 
+         */
+        function renderMenuItem(item) {
+            const itemElement = document.createElement('div');
+            itemElement.className = 'flex items-start justify-between p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition duration-150';
+            itemElement.innerHTML = `
+                <div class="flex-grow">
+                    <h3 class="text-lg font-semibold text-gray-800">${item.name}</h3>
+                    <p class="text-sm text-gray-500">${item.description || 'No description provided.'}</p>
+                    <p class="text-xl font-bold text-red-600 mt-1">$${item.price.toFixed(2)}</p>
+                </div>
+                <button 
+                    onclick="addToCart('${item.id}', '${item.name}', ${item.price})"
+                    class="ml-4 flex-shrink-0 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition duration-150 shadow-md transform hover:scale-105"
+                    title="Add to Cart">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                </button>
+            `;
+            // Re-render Lucide icons injected by JS
+            lucide.createIcons(); 
+            return itemElement;
+        }
+
+        /**
+         * Renders the entire menu based on grouped data.
+         * @param {Object} groupedMenu 
+         */
+        function renderMenu(groupedMenu) {
+            menuContainer.innerHTML = '';
+            
+            const categoriesToShow = Object.keys(groupedMenu);
+            if (categoriesToShow.length === 0 && activeCategory !== 'All') {
+                menuContainer.innerHTML = `<p class="text-center py-12 text-gray-500 text-lg">
+                                               No items found in the category: <span class="font-semibold text-red-600">${activeCategory}</span>.
+                                           </p>`;
+                return;
+            }
+
+            for (const category in groupedMenu) {
+                const categorySection = document.createElement('section');
+                categorySection.className = 'mb-10';
+                categorySection.innerHTML = `
+                    <h2 class="text-3xl font-bold text-gray-700 mb-4 border-l-4 border-red-500 pl-3">${category}</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Items go here -->
+                    </div>
+                `;
+                
+                const itemsGrid = categorySection.querySelector('.grid');
+                groupedMenu[category].forEach(item => {
+                    itemsGrid.appendChild(renderMenuItem(item));
+                });
+
+                menuContainer.appendChild(categorySection);
+            }
+        }
+
+        // --- Cart Management Functions ---
+        
+        /**
+         * Adds an item to the cart or increments its quantity.
+         * @param {string} id - Item ID
+         * @param {string} name - Item name
+         * @param {number} price - Item price
+         */
+        function addToCart(id, name, price) {
+            if (cart[id]) {
+                cart[id].quantity += 1;
+            } else {
+                cart[id] = { id, name, price, quantity: 1 };
+            }
+            updateCart();
+        }
+
+        /**
+         * Removes an item completely from the cart.
+         * @param {string} id - Item ID
+         */
+        function removeFromCart(id) {
+            delete cart[id];
+            updateCart();
+        }
+
+        /**
+         * Updates the quantity of an item in the cart.
+         * @param {string} id - Item ID
+         * @param {number} delta - +1 or -1
+         */
+        function updateCartQuantity(id, delta) {
+            if (cart[id]) {
+                cart[id].quantity += delta;
+                if (cart[id].quantity <= 0) {
+                    removeFromCart(id);
+                } else {
+                    updateCart();
+                }
+            }
+        }
+
+        /**
+         * Renders the cart items, calculates total, and updates the display.
+         */
+        function updateCart() {
+            cartContainer.innerHTML = '';
+            subTotalAmount = 0;
+            const cartItemKeys = Object.keys(cart);
+
+            if (cartItemKeys.length === 0) {
+                emptyCartMessage.classList.remove('hidden');
+                checkoutBtn.disabled = true;
+            } else {
+                emptyCartMessage.classList.add('hidden');
+            }
+
+            cartItemKeys.forEach(id => {
+                const item = cart[id];
+                const itemTotal = item.price * item.quantity;
+                subTotalAmount += itemTotal;
+
+                const cartItemElement = document.createElement('div');
+                cartItemElement.className = 'flex items-center justify-between bg-white p-3 rounded-lg shadow-sm';
+                cartItemElement.innerHTML = `
+                    <div class="flex-grow">
+                        <h4 class="font-medium text-gray-800">${item.name}</h4>
+                        <p class="text-sm text-gray-500">$${item.price.toFixed(2)} x ${item.quantity}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="updateCartQuantity('${id}', -1)" class="text-red-500 hover:text-red-700 p-1 border rounded-md">
+                            <i data-lucide="minus" class="w-4 h-4"></i>
+                        </button>
+                        <span class="font-bold w-4 text-center">${item.quantity}</span>
+                        <button onclick="updateCartQuantity('${id}', 1)" class="text-green-500 hover:text-green-700 p-1 border rounded-md">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+                cartContainer.appendChild(cartItemElement);
+            });
+
+            // Recalculate and update the totals
+            updateTotals();
+            lucide.createIcons(); // Re-render Lucide icons
+        }
+
+        // --- Tipping and Total Calculation Functions ---
+
+        /**
+         * Applies a tip based on a percentage of the subtotal.
+         * @param {number} percentage - The percentage (e.g., 0.15 for 15%).
+         */
+        function applyTipPercentage(percentage) {
+            tipAmount = subTotalAmount * percentage;
+            // Round to 2 decimal places
+            tipAmount = parseFloat(tipAmount.toFixed(2));
+            customTipInput.value = ''; // Clear custom input
+            
+            updateTotals();
+            updateTipButtonState(percentage);
+        }
+
+        /**
+         * Applies a custom tip amount entered by the user.
+         */
+        function applyCustomTip() {
+            const customValue = parseFloat(customTipInput.value);
+            if (!isNaN(customValue) && customValue >= 0) {
+                tipAmount = parseFloat(customValue.toFixed(2));
+            } else {
+                // If input is cleared or invalid, assume zero tip for now (user can clear tip separately)
+                tipAmount = 0; 
+            }
+
+            // If the user enters a custom tip, we need to clear percentage button states
+            updateTipButtonState(null);
+            updateTotals();
+        }
+
+        /**
+         * Clears the current tip amount.
+         */
+        function clearTip() {
+            tipAmount = 0;
+            customTipInput.value = '';
+            updateTotals();
+            updateTipButtonState(null);
+        }
+
+        /**
+         * Updates the visual state of the tip buttons.
+         * @param {number | null} activePercent - The percentage that is currently active, or null to clear.
+         */
+        function updateTipButtonState(activePercent) {
+            tipButtons.forEach(btn => {
+                const percent = parseFloat(btn.getAttribute('data-percent'));
+                if (btn.id === 'clear-tip-btn') {
+                    btn.classList.toggle('hidden', tipAmount === 0);
+                    return;
+                }
+
+                // Check if this button's percentage matches the active one
+                if (percent === activePercent) {
+                    btn.classList.add('bg-red-600', 'text-white');
+                    btn.classList.remove('bg-gray-200', 'text-gray-700');
+                } else {
+                    btn.classList.remove('bg-red-600', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                }
+            });
+
+            // If a custom amount is entered, we highlight the clear button and unhighlight percentages
+            if (customTipInput.value.trim() !== '' && tipAmount > 0) {
+                 clearTipBtn.classList.remove('hidden');
+            } else if (tipAmount === 0) {
+                 clearTipBtn.classList.add('hidden');
+            }
+
+        }
+        
+        /**
+         * Recalculates the final total and updates the display.
+         */
+        function updateTotals() {
+            finalTotalAmount = subTotalAmount + tipAmount;
+
+            tipDisplay.textContent = `$${tipAmount.toFixed(2)}`;
+            cartTotalDisplay.textContent = `$${finalTotalAmount.toFixed(2)}`;
+            
+            // Re-enable/disable checkout button based on cart items
+            checkoutBtn.disabled = Object.keys(cart).length === 0;
+
+            // Re-render clear tip button visibility
+            updateTipButtonState(null);
+        }
+
+        // --- Checkout Logic ---
+        
+        /**
+         * Submits the order to Firestore.
+         */
+        async function submitOrder() {
+            const customerName = customerNameInput.value.trim();
+            
+            if (!customerName) {
+                showModal('Error', 'Please enter your name before placing the order.', 'text-yellow-600');
+                return;
+            }
+            if (Object.keys(cart).length === 0) {
+                 showModal('Error', 'Your cart is empty! Please add items to order.', 'text-yellow-600');
+                return;
+            }
+
+            // Check if Firebase is ready before proceeding with database operations
+            // Try Firestore first; if not available, fallback to posting to server /api/orders
+            const tryServerFallback = async (orderPayload) => {
+                // Prepare body expected by the server endpoint
+                const serverBody = {
+                    customer_name: orderPayload.customer_name,
+                    total_amount: orderPayload.total_amount,
+                    order_details: orderPayload.order_details
+                };
+
+                try {
+                    const resp = await fetch('/api/orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(serverBody)
+                    });
+
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({}));
+                        throw new Error(err.error || `Server returned ${resp.status}`);
+                    }
+
+                    const data = await resp.json();
+                    return { success: true, source: 'server', data };
+                } catch (err) {
+                    return { success: false, error: err };
+                }
+            };
+
+            if (window.isFirebaseReady === false || !window.db) {
+                // If Firebase is not ready, try sending to local server API as a fallback.
+                const orderDetails = Object.values(cart).map(item => ({
+                    item_id: item.id,
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price
+                }));
+
+                const orderPayload = {
+                    customer_name: customerName,
+                    sub_total: subTotalAmount,
+                    tip_amount: tipAmount,
+                    total_amount: finalTotalAmount,
+                    order_details: orderDetails
+                };
+
+                // Set loading state
+                checkoutBtn.disabled = true;
+                checkoutText.classList.add('hidden');
+                checkoutLoading.classList.remove('hidden');
+
+                const serverResult = await tryServerFallback(orderPayload);
+                // Remove loading state
+                checkoutBtn.disabled = false;
+                checkoutText.classList.remove('hidden');
+                checkoutLoading.classList.add('hidden');
+
+                if (serverResult.success) {
+                    const id = serverResult.data && (serverResult.data.order_id || serverResult.data.id);
+                    showModal('Order Success!', `Order ${id || ''} for ${customerName} has been sent to the server successfully.`, 'text-green-600');
+                    resetOrder();
+                } else {
+                    console.error('Server fallback failed:', serverResult.error);
+                    // Save failed order locally for retrieval
+                    saveFailedOrderLocally(orderPayload, serverResult.error);
+                    showModal('Order Failed', `Could not save order. Saved a copy locally for retrieval. Error: ${serverResult.error && serverResult.error.message ? serverResult.error.message : 'No connection to Firestore or server.'}`, 'text-red-600');
+                    toggleDownloadButton(true);
+                }
+
+                return;
+            }
+
+            // Prepare order details for Firestore
+            const orderDetails = Object.values(cart).map(item => ({
+                item_id: item.id,
+                name: item.name, 
+                quantity: item.quantity,
+                price: item.price
+            }));
+
+            const orderPayload = {
+                customer_name: customerName,
+                sub_total: subTotalAmount,     
+                tip_amount: tipAmount,         
+                total_amount: finalTotalAmount, 
+                order_details: orderDetails
+            };
+
+            // Set loading state
+            checkoutBtn.disabled = true;
+            checkoutText.classList.add('hidden');
+            checkoutLoading.classList.remove('hidden');
+
+            try {
+                // The global function handles waiting for auth to complete
+                const response = await window.submitOrderToFirestore(orderPayload);
+                showModal('Order Success!', `Order ${response.order_id} for ${customerName} has been successfully placed and saved to Firestore!`, 'text-green-600');
+                resetOrder();
+
+            } catch (error) {
+                console.error("Firestore Order Submission Failed:", error);
+                // If Firestore write fails, try server fallback before giving up
+                console.warn('Attempting server fallback after Firestore failure...');
+
+                try {
+                    const serverAttempt = await fetch('/api/orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            customer_name: orderPayload.customer_name,
+                            total_amount: orderPayload.total_amount,
+                            order_details: orderPayload.order_details
+                        })
+                    });
+
+                    if (serverAttempt.ok) {
+                        const serverData = await serverAttempt.json();
+                        const id = serverData && (serverData.order_id || serverData.id);
+                        showModal('Order Saved (Server)', `Order ${id || ''} was saved via server fallback.`, 'text-green-600');
+                        resetOrder();
+                    } else {
+                        const err = await serverAttempt.json().catch(() => ({}));
+                        showModal('Order Failed', `Could not save order. Firestore error: ${error.message}. Server fallback failed: ${err.error || serverAttempt.status}.`, 'text-red-600');
+                    }
+                } catch (serverErr) {
+                    console.error('Server fallback also failed:', serverErr);
+                    // Save failed order locally
+                    saveFailedOrderLocally(orderPayload, serverErr);
+                    toggleDownloadButton(true);
+                    showModal('Order Failed', `Could not save order to database. A local copy was saved for retrieval. Details: ${error.message}. Server fallback failed: ${serverErr.message}`, 'text-red-600');
+                }
+            } finally {
+                // Remove loading state
+                checkoutBtn.disabled = false;
+                checkoutText.classList.remove('hidden');
+                checkoutLoading.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Clears the cart and customer name after a successful order.
+         */
+        function resetOrder() {
+            cart = {};
+            subTotalAmount = 0;
+            tipAmount = 0;
+            finalTotalAmount = 0;
+            customerNameInput.value = '';
+            customTipInput.value = '';
+            updateCart();
+            updateTipButtonState(null); // Reset tip buttons
+        }
+        
+        // --- Modal/UI Functions ---
+
+        /**
+         * Shows the custom status modal.
+         * @param {string} title - Modal title.
+         * @param {string} message - Modal message.
+         * @param {string} titleColorClass - Tailwind class for title color (e.g., 'text-red-600').
+         */
+        function showModal(title, message, titleColorClass) {
+            modalTitle.textContent = title;
+            modalTitle.className = `text-2xl font-bold mb-3 ${titleColorClass}`;
+            modalMessage.textContent = message;
+            statusModal.classList.remove('hidden');
+        }
+
+        /**
+         * Hides the custom status modal.
+         */
+        function closeModal() {
+            statusModal.classList.add('hidden');
+        }
+
+        // --- Initialization (Revised to load menu immediately) ---
+
+        /**
+         * Fetches mock menu data and initializes the UI.
+         */
+        function initApp() {
+            // Mock Menu Data for immediate display and testing:
+            const mockMenuData = [
+                { id: 'item_c1', name: 'Espresso', description: 'Strong double shot of our signature blend.', price: 3.50, category: 'Coffee' },
+                { id: 'item_c2', name: 'Latte', description: 'Espresso with steamed milk and a thin layer of foam.', price: 5.00, category: 'Coffee' },
+                { id: 'item_c3', name: 'Cold Brew', description: '16-hour steeped smooth, concentrated coffee.', price: 4.50, category: 'Coffee' },
+                { id: 'item_c4', name: 'Cappuccino', description: 'Equal parts espresso, steamed milk, and milk foam.', price: 5.25, category: 'Coffee' },
+                { id: 'item_p1', name: 'Chocolate Croissant', description: 'Flaky pastry filled with dark chocolate.', price: 3.80, category: 'Pastries' },
+                { id: 'item_p2', name: 'Blueberry Muffin', description: 'A large, moist muffin with fresh blueberries.', price: 3.00, category: 'Pastries' },
+                { id: 'item_p3', name: 'Almond Biscotti', description: 'Crunchy almond biscuits, perfect for dipping.', price: 2.50, category: 'Pastries' },
+                { id: 'item_d1', name: 'Iced Lemon Tea', description: 'Refreshing black tea with a hint of lemon.', price: 4.00, category: 'Drinks' },
+                { id: 'item_d2', name: 'Sparkling Water', description: 'Pure carbonated mineral water.', price: 2.50, category: 'Drinks' },
+                { id: 'item_d3', name: 'Orange Juice', description: 'Freshly squeezed Florida oranges.', price: 3.90, category: 'Drinks' }
+            ];
+
+            menuData = mockMenuData;
+            
+            // Proceed with rendering the menu
+            renderFilters(); 
+            filterMenu(activeCategory); 
+
+            // Hide the spinner and show the menu
+            loadingSpinner.classList.add('hidden');
+            menuContainer.classList.remove('hidden');
+            
+            if (menuData.length === 0) {
+                 loadingSpinner.innerHTML = `
+                    <p class="text-red-600 font-semibold mt-4">
+                        Menu is empty. Please check the mock data or populate the 'menu' collection in Firestore.
+                    </p>
+                `;
+            }
+
+             // Attach listeners
+            checkoutBtn.addEventListener('click', submitOrder);
+        };
+
+
+        // Run the initialization function immediately on DOM content loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp(); // Load the menu immediately
+            lucide.createIcons(); // Initialize all static icons
+        });
+
+        // --- Local fallback helpers ---
+        function saveFailedOrderLocally(orderPayload, err) {
+            try {
+                const payload = {
+                    order: orderPayload,
+                    error: (err && err.message) ? err.message : String(err),
+                    saved_at: new Date().toISOString()
+                };
+                localStorage.setItem('last_failed_order', JSON.stringify(payload));
+            } catch (e) {
+                console.error('Failed to save order locally:', e);
+            }
+        }
+
+        function downloadLastOrder() {
+            const saved = localStorage.getItem('last_failed_order');
+            if (!saved) { alert('No saved order available.'); return; }
+            const blob = new Blob([saved], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `order-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleDownloadButton(show) {
+            const btn = document.getElementById('download-order-btn');
+            if (!btn) return;
+            btn.style.display = show ? 'inline-block' : 'none';
+        }
+
+        // Show download button if there's a saved failed order
+        try { if (localStorage.getItem('last_failed_order')) toggleDownloadButton(true); } catch(e){}
+
+    </script>
+</body>
+</html>
