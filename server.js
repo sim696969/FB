@@ -5,6 +5,7 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // --- MODIFICATION 1: Use process.env.PORT for cloud hosting ---
 const port = process.env.PORT || 3000;
@@ -16,10 +17,50 @@ let admin = null;
 let db = null;
 let authReady = false;
 
+// --- SQLite (file-based) fallback for free public hosting ---
+// --- Lightweight JSON file fallback for free public hosting (no native build tools required) ---
+const jsonDbPath = path.join(__dirname, 'orders.json');
+try {
+    if (!fs.existsSync(jsonDbPath)) {
+        fs.writeFileSync(jsonDbPath, JSON.stringify({ orders: [] }, null, 2));
+    }
+    console.log('✅ JSON orders storage initialized at', jsonDbPath);
+} catch (e) {
+    console.warn('Could not initialize JSON orders storage:', e.message);
+}
+
+function readOrdersJson() {
+    try {
+        const raw = fs.readFileSync(jsonDbPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed.orders) ? parsed.orders : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function writeOrdersJson(orders) {
+    fs.writeFileSync(jsonDbPath, JSON.stringify({ orders }, null, 2));
+}
+
 // Global variables provided by the Canvas environment (If you were using them)
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
+
+// --- Supabase client (optional) for production persistence ---
+let supabase = null;
+try {
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_KEY = process.env.SUPABASE_KEY; // service_role key recommended for server
+    if (SUPABASE_URL && SUPABASE_KEY) {
+        const { createClient } = require('@supabase/supabase-js');
+        supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('✅ Supabase client initialized from environment variables');
+    }
+} catch (e) {
+    console.warn('Supabase client initialization failed:', e.message);
+}
 
 // --- MODIFICATION 2: Use Environment Variable for Service Account Key ---
 try {
@@ -80,8 +121,8 @@ app.use(express.static(path.join(__dirname, '')));
 // ----------------------------------------------------
 
 function getPublicCollectionPath(name) {
-    // Example from your original logic to scope data per app
-    return `apps/${appId}/${name}`;
+    // Match the client collection path used by index.html
+    return `artifacts/${appId}/public/data/${name}`;
 }
 
 // Route to serve your main index.html file
@@ -90,25 +131,40 @@ app.get('/', (req, res) => {
 });
 
 // Your existing API route (POST /order) should be here
-app.post('/order', async (req, res) => {
+app.post('/api/orders', async (req, res) => {
     try {
-        const orderPayload = req.body;
-        // The rest of your existing database logic (Firestore/MySQL)
-        // ...
-        
-        // Ensure you use the correct variable (db, useAdmin, ordersRef) 
-        // as defined in your original file for your database operations.
+        const { customer_name, total_amount, order_details, sub_total, tip_amount } = req.body;
 
-        if (!db) return res.status(503).json({ error: 'Database not configured on server.' });
-        
-        // Example: Inserting data into Firestore using the configured SDK
-        // const ordersRef = useAdmin ? db.collection(getPublicCollectionPath('orders')) : collection(db, getPublicCollectionPath('orders'));
-        // const docRef = useAdmin ? await ordersRef.add(orderData) : await addDoc(ordersRef, orderData);
+        if (!customer_name || typeof total_amount !== 'number' || !Array.isArray(order_details) || order_details.length === 0) {
+            return res.status(400).json({ error: 'Order must include customer_name, numeric total_amount, and a non-empty order_details array.' });
+        }
 
-        // res.status(201).json({ message: 'Order successfully placed...' });
+        const orderData = {
+            customer_name,
+            sub_total: typeof sub_total === 'number' ? sub_total : 0,
+            tip_amount: typeof tip_amount === 'number' ? tip_amount : 0,
+            total_amount,
+            order_details,
+            order_date: new Date().toISOString(),
+            status: 'pending'
+        };
 
-        // Add your existing /order logic back here
-        res.status(200).json({ message: 'Order received and processed!' }); 
+        // If sqlite is available, persist to orders.db
+        if (sqliteDb) {
+            const id = crypto.randomUUID();
+            const stmt = sqliteDb.prepare(`INSERT INTO orders (id, customer_name, sub_total, tip_amount, total_amount, order_details, order_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+            stmt.run(id, orderData.customer_name, orderData.sub_total, orderData.tip_amount, orderData.total_amount, JSON.stringify(orderData.order_details), orderData.order_date, orderData.status);
+            return res.status(201).json({ message: 'Order saved to local SQLite DB', order_id: id });
+        }
+
+        // Otherwise, attempt to use firebase-admin / firestore
+        if (useAdmin && db) {
+            const ordersRef = db.collection(getPublicCollectionPath('orders'));
+            const docRef = await ordersRef.add(orderData);
+            return res.status(201).json({ message: 'Order saved to Firestore (admin)', order_id: docRef.id });
+        }
+
+        return res.status(503).json({ error: 'No persistent database configured on server.' });
 
     } catch (error) {
         console.error('API Error (orders):', error);
@@ -116,6 +172,46 @@ app.post('/order', async (req, res) => {
     }
 });
 
+    app.get('/api/menu', async (req, res) => {
+        try {
+            if (sqliteDb) {
+                // For simple demo, store menu items in sqlite as well (if any). We'll return an empty list for now.
+                const rows = sqliteDb.prepare('SELECT id, customer_name FROM orders LIMIT 0').all();
+                res.json([]);
+                return;
+            }
+
+            if (!db) return res.status(503).json({ error: 'Database not configured on server. Provide serviceAccountKey.json for firebase-admin or valid client config.' });
+            const menuRef = useAdmin ? db.collection(getPublicCollectionPath('menu_items')) : collection(db, getPublicCollectionPath('menu_items'));
+            const q = query(menuRef);
+            const snapshot = await getDocs(q);
+
+            const menuItems = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            res.json(menuItems);
+        } catch (error) {
+            console.error('API Error (menu):', error);
+            res.status(500).json({ error: 'Failed to retrieve menu.' });
+        }
+    });
+
+// Status endpoint so client can detect server-side DB availability
+app.get('/api/status', (req, res) => {
+    try {
+        if (fs.existsSync(jsonDbPath)) {
+            return res.json({ db: 'sqlite' });
+        }
+        if (useAdmin) {
+            return res.json({ db: 'firestore' });
+        }
+        return res.json({ db: 'none' });
+    } catch (e) {
+        return res.json({ db: 'unknown', error: e.message });
+    }
+});
 
 // ----------------------------------------------------
 // 5. START THE SERVER

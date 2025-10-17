@@ -882,6 +882,21 @@
             lucide.createIcons(); // Initialize all static icons
         });
 
+        // Check server status to see if a server-side DB is available
+        (async function checkServerStatus(){
+            try {
+                const resp = await fetch('/api/status');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                // If server reports sqlite or firestore, hide the firebase warning
+                if (data.db === 'sqlite' || data.db === 'firestore') {
+                    if (window.firebaseErrorElement) window.firebaseErrorElement.classList.add('hidden');
+                }
+            } catch (e) {
+                // ignore
+            }
+        })();
+
         // --- Local fallback helpers ---
         function saveFailedOrderLocally(orderPayload, err) {
             try {
