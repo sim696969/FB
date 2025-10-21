@@ -1,26 +1,33 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 console.log('☕ Coffee Shop Server Starting...');
+console.log('Current directory:', __dirname);
+console.log('Files in directory:', fs.readdirSync(__dirname));
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname));
 
-// Routes
+// Serve static files from current directory
+app.use(express.static(__dirname, {
+  index: 'index.html',
+  extensions: ['html', 'js', 'css', 'json']
+}));
+
+// Explicit route for root
 app.get('/', (req, res) => {
-  console.log('Homepage requested');
+  console.log('📄 Serving index.html from:', path.join(__dirname, 'index.html'));
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Health check - Railway monitors this
+// Health check
 app.get('/health', (req, res) => {
-  console.log('Health check requested');
   res.json({ 
     status: 'OK', 
     message: 'Coffee Shop Server is running!',
@@ -29,12 +36,14 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Additional test endpoint
-app.get('/api/status', (req, res) => {
+// Test if index.html exists
+app.get('/test-file', (req, res) => {
+  const indexPath = path.join(__dirname, 'index.html');
+  const exists = fs.existsSync(indexPath);
   res.json({ 
-    status: 'active', 
-    service: 'coffee-shop',
-    timestamp: new Date().toISOString()
+    index_html_exists: exists,
+    path: indexPath,
+    directory: __dirname
   });
 });
 
@@ -87,11 +96,12 @@ app.get('/api/orders', (req, res) => {
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('✅ SERVER STARTED SUCCESSFULLY!');
   console.log(`📍 Port: ${PORT}`);
+  console.log(`📍 Main URL: http://0.0.0.0:${PORT}/`);
   console.log(`📍 Health: http://0.0.0.0:${PORT}/health`);
-  console.log('☕ Ready to take orders!');
+  console.log(`📍 File Test: http://0.0.0.0:${PORT}/test-file`);
 });
 
-// Critical: Keep the process alive and handle signals properly
+// Keep alive
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM received - Graceful shutdown');
   server.close(() => {
@@ -100,15 +110,6 @@ process.on('SIGTERM', () => {
   });
 });
 
-process.on('SIGINT', () => {
-  console.log('🛑 SIGINT received - Graceful shutdown');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
-
-// Keep the process alive
 setInterval(() => {
-  console.log('💓 Heartbeat - Server alive for', process.uptime(), 'seconds');
-}, 30000); // Log every 30 seconds
+  console.log('💓 Server alive for', Math.floor(process.uptime()), 'seconds');
+}, 30000);
