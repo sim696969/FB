@@ -1,67 +1,91 @@
-console.log('🚀 Starting Coffee Shop Server...');
-
 const express = require('express');
-const app = express();
+const cors = require('cors');
+const path = require('path');
+const { Client } = require('pg');
 
-// Use Railway's provided port
+const app = express();
 const PORT = process.env.PORT || 3000;
 
-console.log('Using port:', PORT);
+console.log('☕ Coffee Shop with ALL Dependencies Starting...');
 
-// Root route
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(__dirname));
+
+// Routes
 app.get('/', (req, res) => {
-  console.log('📄 Homepage requested');
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>☕ Coffee Shop</title>
-        <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
-            .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            h1 { color: #8B4513; font-size: 2.5em; }
-            .status { color: green; font-weight: bold; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>☕ Welcome to The Coffee Shop!</h1>
-            <p class="status">✅ Server is running successfully on Railway</p>
-            <p>Port: ${PORT}</p>
-            <p>Time: ${new Date().toISOString()}</p>
-            <p><a href="/health">Health Check</a> | <a href="/test">Test API</a></p>
-        </div>
-    </body>
-    </html>
-  `);
+  console.log('📄 Serving coffee shop homepage');
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'Coffee Shop Server is healthy!',
+    message: 'Coffee Shop with all dependencies is running!',
     timestamp: new Date().toISOString(),
-    port: PORT,
-    uptime: process.uptime()
+    dependencies: {
+      express: '✓',
+      cors: '✓', 
+      pg: '✓'
+    }
   });
 });
 
-// Test endpoint
-app.get('/test', (req, res) => {
+// Simple in-memory orders
+let orders = [];
+
+app.post('/api/orders', (req, res) => {
+  try {
+    const orderData = req.body;
+    const orderId = 'ORD-' + Date.now();
+    
+    const order = {
+      orderId: orderId,
+      items: orderData.items || [],
+      subtotal: orderData.subtotal || 0,
+      tipAmount: orderData.tipAmount || 0,
+      total: orderData.total || 0,
+      customer_name: orderData.customer_name || 'Guest',
+      status: 'received',
+      timestamp: new Date().toISOString()
+    };
+    
+    orders.push(order);
+    console.log('📦 Order received:', orderId);
+    
+    res.json({ 
+      success: true, 
+      orderId: orderId,
+      message: 'Order received successfully!'
+    });
+    
+  } catch (error) {
+    console.error('Order error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to process order' 
+    });
+  }
+});
+
+app.get('/api/orders', (req, res) => {
   res.json({ 
-    message: 'API is working!',
-    timestamp: new Date().toISOString()
+    success: true, 
+    orders: orders,
+    count: orders.length
   });
 });
 
-// Start server - CRITICAL: Bind to 0.0.0.0
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log('✅ SERVER STARTED on port ' + PORT);
-  console.log('📍 Server is ready to accept requests');
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('✅ COFFEE SHOP WITH ALL DEPENDENCIES RUNNING!');
+  console.log(`📍 Port: ${PORT}`);
+  console.log('☕ Ready to take orders!');
 });
 
-// Keep process alive
+// Keep alive
 setInterval(() => {
-  console.log('💓 Server alive for ' + Math.floor(process.uptime()) + ' seconds');
-}, 15000);
+  console.log('💓 Server alive: ' + Math.floor(process.uptime()) + 's');
+}, 30000);
