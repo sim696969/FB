@@ -1,226 +1,523 @@
-// ----------------------------------------------------
-// 1. IMPORT NECESSARY MODULES
-// ----------------------------------------------------
 const express = require('express');
-const app = express();
+const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const { Client } = require('pg');
 
-// --- MODIFICATION 1: Use process.env.PORT for cloud hosting ---
-const port = process.env.PORT || 3000;
-// --------------------------------------------------------------
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Prefer firebase-admin on the server for secure, trusted access.
-let useAdmin = false;
-let admin = null;
-let db = null;
-let authReady = false;
+// Database connection
+const client = new Client({
+    connectionString: process.env.SUPABASE_CONNECTION_STRING || 'postgresql://postgres:@1234Abcd@db.wmwvgxcwasqestkgqxxs.supabase.co:5432/postgres',
+    ssl: { rejectUnauthorized: false }
+});
 
-// --- SQLite (file-based) fallback for free public hosting ---
-// --- Lightweight JSON file fallback for free public hosting (no native build tools required) ---
-const jsonDbPath = path.join(__dirname, 'orders.json');
-try {
-    if (!fs.existsSync(jsonDbPath)) {
-        fs.writeFileSync(jsonDbPath, JSON.stringify({ orders: [] }, null, 2));
-    }
-    console.log('✅ JSON orders storage initialized at', jsonDbPath);
-} catch (e) {
-    console.warn('Could not initialize JSON orders storage:', e.message);
-}
+// Connect to database
+client.connect().then(() => {
+    console.log('✅ Connected to Supabase PostgreSQL database');
+}).catch(err => {
+    console.error('❌ Database connection failed:', err);
+});
 
-function readOrdersJson() {
-    try {
-        const raw = fs.readFileSync(jsonDbPath, 'utf8');
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed.orders) ? parsed.orders : [];
-    } catch (e) {
-        return [];
-    }
-}
-
-function writeOrdersJson(orders) {
-    fs.writeFileSync(jsonDbPath, JSON.stringify({ orders }, null, 2));
-}
-
-// Global variables provided by the Canvas environment (If you were using them)
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
-
-// --- Supabase client (optional) for production persistence ---
-let supabase = null;
-try {
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_KEY; // service_role key recommended for server
-    if (SUPABASE_URL && SUPABASE_KEY) {
-        const { createClient } = require('@supabase/supabase-js');
-        supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-        console.log('✅ Supabase client initialized from environment variables');
-    }
-} catch (e) {
-    console.warn('Supabase client initialization failed:', e.message);
-}
-
-// --- MODIFICATION 2: Use Environment Variable for Service Account Key ---
-try {
-    // 1. CHECK ENVIRONMENT VARIABLE (PRIMARY METHOD FOR DEPLOYMENT)
-    const serviceAccountJson = process.env.SERVICE_ACCOUNT_KEY;
-
-    if (serviceAccountJson) {
-        // Parse the JSON string from the secure environment variable
-        const serviceAccount = JSON.parse(serviceAccountJson); 
-        admin = require('firebase-admin');
-        admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-        db = admin.firestore();
-        useAdmin = true;
-        authReady = true;
-        console.log('✅ Using firebase-admin via SERVICE_ACCOUNT_KEY env var');
-    } 
-    // 2. FALLBACK TO LOCAL FILE (EXISTING LOGIC FOR LOCAL DEVELOPMENT)
-    else if (fs.existsSync(path.join(__dirname, 'serviceAccountKey.json'))) {
-        admin = require('firebase-admin');
-        const serviceAccount = require(path.join(__dirname, 'serviceAccountKey.json'));
-        admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-        db = admin.firestore();
-        useAdmin = true;
-        authReady = true;
-        console.log('✅ Using firebase-admin with local serviceAccountKey.json');
-    }
-} catch (e) {
-    console.warn('⚠️ firebase-admin initialization failed (Service Account Check):', e.message);
-} 
-// ----------------------------------------------------------------------
-
-
-// If firebase-admin didn't initialize, try client SDK fallback (if you use it)
-if (!useAdmin && Object.keys(firebaseConfig).length > 0) {
-    // THIS BLOCK REMAINS UNMODIFIED (from your original file)
-    // Add your existing Firebase Client SDK initialization logic here if it was present
-    // ...
-}
-
-
-// ----------------------------------------------------
-// 2. MIDDLEWARE CONFIGURATION
-// ----------------------------------------------------
-// You should keep your existing middleware code here (e.g., app.use(express.json());)
+// Middleware
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.static('.')); // Serve all files in current directory
 
-
-// ----------------------------------------------------
-// 3. STATIC FILE SERVING
-// ----------------------------------------------------
-// This serves your index.html and any other static assets (CSS, JS, images)
-app.use(express.static(path.join(__dirname, '')));
-
-
-// ----------------------------------------------------
-// 4. API ROUTES (Keep your existing routes here)
-// ----------------------------------------------------
-
-function getPublicCollectionPath(name) {
-    // Match the client collection path used by index.html
-    return `artifacts/${appId}/public/data/${name}`;
-}
-
-// Route to serve your main index.html file
+// Serve the main page
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Your existing API route (POST /order) should be here
+// API Routes
+
+// Get all orders (for admin viewing)
+app.get('/api/orders', async (req, res) => {
+    try {
+        const result = await client.query(`
+            SELECT * FROM orders 
+            ORDER BY created_at DESC
+        `);
+        
+        res.json({ 
+            success: true, 
+            orders: result.rows,
+            count: result.rowCount
+        });
+    } catch (error) {
+        console.error('Error reading orders:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Cannot read orders from database' 
+        });
+    }
+});
+
+// Submit new order
 app.post('/api/orders', async (req, res) => {
     try {
-        const { customer_name, total_amount, order_details, sub_total, tip_amount } = req.body;
+        const orderData = req.body;
+        
+        // Generate order ID
+        const orderId = 'ORD-' + Date.now();
+        
+        console.log('📦 New order received:', orderData);
+        
+        // Save to PostgreSQL database
+        const query = `
+            INSERT INTO orders (order_id, items, subtotal, tip_amount, total, status)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, order_id, created_at
+        `;
+        
+        const values = [
+            orderId,
+            JSON.stringify(orderData.items),
+            parseFloat(orderData.subtotal),
+            parseFloat(orderData.tipAmount),
+            parseFloat(orderData.total),
+            'received'
+        ];
 
-        if (!customer_name || typeof total_amount !== 'number' || !Array.isArray(order_details) || order_details.length === 0) {
-            return res.status(400).json({ error: 'Order must include customer_name, numeric total_amount, and a non-empty order_details array.' });
-        }
-
-        const orderData = {
-            customer_name,
-            sub_total: typeof sub_total === 'number' ? sub_total : 0,
-            tip_amount: typeof tip_amount === 'number' ? tip_amount : 0,
-            total_amount,
-            order_details,
-            order_date: new Date().toISOString(),
-            status: 'pending'
-        };
-
-        // If sqlite is available, persist to orders.db
-        if (sqliteDb) {
-            const id = crypto.randomUUID();
-            const stmt = sqliteDb.prepare(`INSERT INTO orders (id, customer_name, sub_total, tip_amount, total_amount, order_details, order_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-            stmt.run(id, orderData.customer_name, orderData.sub_total, orderData.tip_amount, orderData.total_amount, JSON.stringify(orderData.order_details), orderData.order_date, orderData.status);
-            return res.status(201).json({ message: 'Order saved to local SQLite DB', order_id: id });
-        }
-
-        // Otherwise, attempt to use firebase-admin / firestore
-        if (useAdmin && db) {
-            const ordersRef = db.collection(getPublicCollectionPath('orders'));
-            const docRef = await ordersRef.add(orderData);
-            return res.status(201).json({ message: 'Order saved to Firestore (admin)', order_id: docRef.id });
-        }
-
-        return res.status(503).json({ error: 'No persistent database configured on server.' });
-
+        const result = await client.query(query, values);
+        const savedOrder = result.rows[0];
+        
+        console.log('💾 Order saved to database with ID:', savedOrder.id);
+        
+        res.json({ 
+            success: true, 
+            orderId: savedOrder.order_id,
+            message: 'Order received successfully!',
+            timestamp: savedOrder.created_at
+        });
+        
     } catch (error) {
-        console.error('API Error (orders):', error);
-        res.status(500).json({ error: 'Failed to process order.' });
+        console.error('Error processing order:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to process order in database' 
+        });
     }
 });
 
-    app.get('/api/menu', async (req, res) => {
-        try {
-            if (sqliteDb) {
-                // For simple demo, store menu items in sqlite as well (if any). We'll return an empty list for now.
-                const rows = sqliteDb.prepare('SELECT id, customer_name FROM orders LIMIT 0').all();
-                res.json([]);
-                return;
-            }
-
-            if (!db) return res.status(503).json({ error: 'Database not configured on server. Provide serviceAccountKey.json for firebase-admin or valid client config.' });
-            const menuRef = useAdmin ? db.collection(getPublicCollectionPath('menu_items')) : collection(db, getPublicCollectionPath('menu_items'));
-            const q = query(menuRef);
-            const snapshot = await getDocs(q);
-
-            const menuItems = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-
-            res.json(menuItems);
-        } catch (error) {
-            console.error('API Error (menu):', error);
-            res.status(500).json({ error: 'Failed to retrieve menu.' });
-        }
-    });
-
-// Status endpoint so client can detect server-side DB availability
-app.get('/api/status', (req, res) => {
+// Get single order by ID
+app.get('/api/orders/:orderId', async (req, res) => {
     try {
-        if (fs.existsSync(jsonDbPath)) {
-            return res.json({ db: 'sqlite' });
+        const { orderId } = req.params;
+        
+        const result = await client.query(
+            'SELECT * FROM orders WHERE order_id = $1',
+            [orderId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Order not found'
+            });
         }
-        if (useAdmin) {
-            return res.json({ db: 'firestore' });
-        }
-        return res.json({ db: 'none' });
-    } catch (e) {
-        return res.json({ db: 'unknown', error: e.message });
+        
+        res.json({
+            success: true,
+            order: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('Error fetching order:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Cannot fetch order'
+        });
     }
 });
 
-// ----------------------------------------------------
-// 5. START THE SERVER
-// ----------------------------------------------------
-
-app.listen(port, () => {
-    console.log(`🚀 F&B Server is ready and listening on port ${port}`);
-    console.log('Database:', useAdmin ? 'Firestore (firebase-admin)' : (db ? 'Firestore (client SDK fallback)' : 'NOT CONFIGURED'));
-    if (!useAdmin && !db) {
-        console.warn('Server database not configured. To enable persistent storage, set the SERVICE_ACCOUNT_KEY environment variable on your host.');
+// Update order status
+app.put('/api/orders/:orderId/status', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { status } = req.body;
+        
+        const result = await client.query(
+            'UPDATE orders SET status = $1, updated_at = NOW() WHERE order_id = $2 RETURNING *',
+            [status, orderId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Order not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            order: result.rows[0],
+            message: 'Order status updated'
+        });
+        
+    } catch (error) {
+        console.error('Error updating order:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Cannot update order'
+        });
     }
+});
+
+// Admin page to view all orders
+app.get('/admin', async (req, res) => {
+    try {
+        const result = await client.query(`
+            SELECT * FROM orders 
+            ORDER BY created_at DESC
+        `);
+        
+        const orders = result.rows;
+        
+        let html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Order Admin - Coffee Shop</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    background-color: #f5f5f5;
+                    padding: 20px;
+                    max-width: 1200px;
+                    margin: 0 auto;
+                }
+                
+                .header {
+                    background: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    margin-bottom: 30px;
+                    text-align: center;
+                }
+                
+                h1 {
+                    color: #5d4037;
+                    margin-bottom: 10px;
+                    font-size: 2.5rem;
+                }
+                
+                .stats {
+                    display: flex;
+                    justify-content: center;
+                    gap: 20px;
+                    margin-top: 20px;
+                    flex-wrap: wrap;
+                }
+                
+                .stat-card {
+                    background: #8d6e63;
+                    color: white;
+                    padding: 15px 25px;
+                    border-radius: 8px;
+                    text-align: center;
+                    min-width: 150px;
+                }
+                
+                .stat-number {
+                    font-size: 2rem;
+                    font-weight: bold;
+                    display: block;
+                }
+                
+                .orders-grid {
+                    display: grid;
+                    gap: 20px;
+                }
+                
+                .order-card {
+                    background: white;
+                    padding: 25px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    border-left: 5px solid #8d6e63;
+                }
+                
+                .order-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-bottom: 15px;
+                    flex-wrap: wrap;
+                    gap: 10px;
+                }
+                
+                .order-id {
+                    font-weight: bold;
+                    color: #5d4037;
+                    font-size: 1.2rem;
+                }
+                
+                .order-time {
+                    color: #666;
+                    font-size: 0.9rem;
+                }
+                
+                .order-status {
+                    background: #e8f5e9;
+                    color: #2e7d32;
+                    padding: 5px 12px;
+                    border-radius: 20px;
+                    font-size: 0.8rem;
+                    font-weight: bold;
+                }
+                
+                .order-items {
+                    margin: 15px 0;
+                }
+                
+                .order-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                
+                .order-item:last-child {
+                    border-bottom: none;
+                }
+                
+                .item-name {
+                    font-weight: 500;
+                }
+                
+                .item-details {
+                    color: #666;
+                    font-size: 0.9rem;
+                }
+                
+                .order-totals {
+                    background: #f9f9f9;
+                    padding: 15px;
+                    border-radius: 8px;
+                    margin-top: 15px;
+                }
+                
+                .total-line {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                }
+                
+                .grand-total {
+                    font-weight: bold;
+                    font-size: 1.1rem;
+                    color: #5d4037;
+                    border-top: 2px solid #e0e0e0;
+                    padding-top: 10px;
+                    margin-top: 10px;
+                }
+                
+                .no-orders {
+                    text-align: center;
+                    padding: 60px 20px;
+                    color: #666;
+                    font-size: 1.1rem;
+                }
+                
+                .no-orders h2 {
+                    color: #999;
+                    margin-bottom: 10px;
+                }
+                
+                @media (max-width: 768px) {
+                    .header {
+                        padding: 20px;
+                    }
+                    
+                    h1 {
+                        font-size: 2rem;
+                    }
+                    
+                    .stat-card {
+                        min-width: 120px;
+                        padding: 12px 20px;
+                    }
+                    
+                    .order-header {
+                        flex-direction: column;
+                        align-items: flex-start;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>☕ Coffee Shop Orders</h1>
+                <p>Real-time order management system</p>
+                <div class="stats">
+                    <div class="stat-card">
+                        <span class="stat-number">${orders.length}</span>
+                        <span>Total Orders</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number">$${orders.reduce((sum, order) => sum + parseFloat(order.total), 0).toFixed(2)}</span>
+                        <span>Total Revenue</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (orders.length === 0) {
+            html += `
+            <div class="no-orders">
+                <h2>No Orders Yet</h2>
+                <p>Waiting for customers to place orders...</p>
+            </div>
+            `;
+        } else {
+            html += `<div class="orders-grid">`;
+            
+            orders.forEach((order, index) => {
+                const orderDate = new Date(order.created_at).toLocaleString();
+                const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+                
+                html += `
+                <div class="order-card">
+                    <div class="order-header">
+                        <div>
+                            <div class="order-id">Order #${index + 1}: ${order.order_id}</div>
+                            <div class="order-time">${orderDate}</div>
+                        </div>
+                        <div class="order-status">${order.status.toUpperCase()}</div>
+                    </div>
+                    
+                    <div class="order-items">
+                        ${items.map(item => `
+                            <div class="order-item">
+                                <div>
+                                    <div class="item-name">${item.name}</div>
+                                    <div class="item-details">$${item.price} × ${item.quantity}</div>
+                                </div>
+                                <div class="item-total">$${(item.price * item.quantity).toFixed(2)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="order-totals">
+                        <div class="total-line">
+                            <span>Subtotal:</span>
+                            <span>$${parseFloat(order.subtotal).toFixed(2)}</span>
+                        </div>
+                        <div class="total-line">
+                            <span>Tip:</span>
+                            <span>$${parseFloat(order.tip_amount).toFixed(2)}</span>
+                        </div>
+                        <div class="total-line grand-total">
+                            <span>Total:</span>
+                            <span>$${parseFloat(order.total).toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+                `;
+            });
+            
+            html += `</div>`;
+        }
+        
+        html += `
+            </body>
+            </html>
+        `;
+        
+        res.send(html);
+    } catch (error) {
+        console.error('Error loading admin page:', error);
+        res.status(500).send(`
+            <html>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+                <h1>Error Loading Admin Page</h1>
+                <p>${error.message}</p>
+            </body>
+            </html>
+        `);
+    }
+});
+
+// Health check endpoint
+app.get('/health', async (req, res) => {
+    try {
+        // Test database connection
+        await client.query('SELECT 1');
+        
+        res.json({ 
+            status: 'OK', 
+            message: 'Server and database are running', 
+            timestamp: new Date().toISOString(),
+            database: 'Connected ✅'
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'ERROR',
+            message: 'Server running but database connection failed',
+            timestamp: new Date().toISOString(),
+            database: 'Disconnected ❌',
+            error: error.message
+        });
+    }
+});
+
+// Debug endpoint to see orders
+app.get('/debug-orders', async (req, res) => {
+    try {
+        const result = await client.query('SELECT * FROM orders ORDER BY created_at DESC');
+        
+        console.log('All orders in database:', result.rows);
+        
+        res.json({ 
+            success: true, 
+            orders: result.rows,
+            count: result.rowCount
+        });
+    } catch (error) {
+        console.error('Error reading orders:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Cannot read orders from database' 
+        });
+    }
+});
+
+// Test endpoint
+app.get('/test', (req, res) => {
+    res.json({ 
+        message: 'Server is working!',
+        timestamp: new Date().toISOString(),
+        port: PORT,
+        database: process.env.SUPABASE_CONNECTION_STRING ? 'Configured ✅' : 'Not configured ❌'
+    });
+});
+
+// Error handling for database connection
+process.on('SIGINT', async () => {
+    console.log('\n🛑 Shutting down server...');
+    await client.end();
+    process.exit(0);
+});
+
+// START SERVER - THIS IS CRITICAL!
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📍 Main site: http://localhost:${PORT}`);
+    console.log(`📊 Admin panel: http://localhost:${PORT}/admin`);
+    console.log(`🔍 Debug orders: http://localhost:${PORT}/debug-orders`);
+    console.log(`❤️ Health check: http://localhost:${PORT}/health`);
+    console.log(`💾 Database: Supabase PostgreSQL`);
+    console.log(`✅ Server started successfully!`);
 });
