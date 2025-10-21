@@ -1,29 +1,37 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 console.log('☕ Coffee Shop Server Starting...');
-console.log('Current directory:', __dirname);
-console.log('Files in directory:', fs.readdirSync(__dirname));
+console.log('Environment: production');
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from current directory
-app.use(express.static(__dirname, {
-  index: 'index.html',
-  extensions: ['html', 'js', 'css', 'json']
-}));
+// Serve static files from current directory - SIMPLIFIED
+app.use(express.static(__dirname));
 
 // Explicit route for root
 app.get('/', (req, res) => {
-  console.log('📄 Serving index.html from:', path.join(__dirname, 'index.html'));
-  res.sendFile(path.join(__dirname, 'index.html'));
+  console.log('📄 Serving index.html');
+  try {
+    res.sendFile(path.join(__dirname, 'index.html'));
+  } catch (error) {
+    console.error('Error serving index.html:', error);
+    res.status(500).send(`
+      <html>
+        <body>
+          <h1>Coffee Shop Server is Running! ☕</h1>
+          <p>But index.html is not accessible.</p>
+          <p><a href="/health">Health Check</a></p>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // Health check
@@ -36,14 +44,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Test if index.html exists
-app.get('/test-file', (req, res) => {
-  const indexPath = path.join(__dirname, 'index.html');
-  const exists = fs.existsSync(indexPath);
+// Simple test endpoint
+app.get('/test', (req, res) => {
   res.json({ 
-    index_html_exists: exists,
-    path: indexPath,
-    directory: __dirname
+    message: 'Server is working!',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -96,9 +101,7 @@ app.get('/api/orders', (req, res) => {
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('✅ SERVER STARTED SUCCESSFULLY!');
   console.log(`📍 Port: ${PORT}`);
-  console.log(`📍 Main URL: http://0.0.0.0:${PORT}/`);
-  console.log(`📍 Health: http://0.0.0.0:${PORT}/health`);
-  console.log(`📍 File Test: http://0.0.0.0:${PORT}/test-file`);
+  console.log('☕ Ready to take orders!');
 });
 
 // Keep alive
