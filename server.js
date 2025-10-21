@@ -1,37 +1,35 @@
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-console.log('☕ Coffee Shop Server Starting...');
-console.log('Environment: production');
+console.log('=== STARTING COFFEE SHOP SERVER ===');
 
-// Middleware
-app.use(cors());
+// Basic middleware
 app.use(express.json());
 
-// Serve static files from current directory - SIMPLIFIED
-app.use(express.static(__dirname));
-
-// Explicit route for root
+// Serve a simple HTML page directly
 app.get('/', (req, res) => {
-  console.log('📄 Serving index.html');
-  try {
-    res.sendFile(path.join(__dirname, 'index.html'));
-  } catch (error) {
-    console.error('Error serving index.html:', error);
-    res.status(500).send(`
-      <html>
-        <body>
-          <h1>Coffee Shop Server is Running! ☕</h1>
-          <p>But index.html is not accessible.</p>
-          <p><a href="/health">Health Check</a></p>
-        </body>
-      </html>
-    `);
-  }
+  console.log('Serving coffee shop homepage');
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>The Coffee Shop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-lg text-center">
+        <h1 class="text-4xl font-bold text-red-600 mb-4">☕ The Coffee Shop</h1>
+        <p class="text-gray-600 mb-4">Welcome to our coffee shop!</p>
+        <p class="text-green-600 font-semibold">✅ Server is running successfully!</p>
+        <div class="mt-6 space-y-2">
+            <a href="/health" class="block bg-blue-500 text-white px-4 py-2 rounded">Health Check</a>
+            <a href="/test" class="block bg-green-500 text-white px-4 py-2 rounded">Test API</a>
+        </div>
+    </div>
+</body>
+</html>
+  `);
 });
 
 // Health check
@@ -44,75 +42,32 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Simple test endpoint
+// Test endpoint
 app.get('/test', (req, res) => {
   res.json({ 
-    message: 'Server is working!',
+    message: 'API is working!',
     timestamp: new Date().toISOString()
   });
 });
 
-// Simple in-memory orders
-let orders = [];
-
+// Order endpoint
 app.post('/api/orders', (req, res) => {
-  try {
-    const orderData = req.body;
-    const orderId = 'ORD-' + Date.now();
-    
-    const order = {
-      orderId: orderId,
-      items: orderData.items || [],
-      subtotal: orderData.subtotal || 0,
-      tipAmount: orderData.tipAmount || 0,
-      total: orderData.total || 0,
-      customer_name: orderData.customer_name || 'Guest',
-      status: 'received',
-      timestamp: new Date().toISOString()
-    };
-    
-    orders.push(order);
-    console.log('📦 Order received:', orderId);
-    
-    res.json({ 
-      success: true, 
-      orderId: orderId,
-      message: 'Order received successfully!'
-    });
-    
-  } catch (error) {
-    console.error('Order error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to process order' 
-    });
-  }
-});
-
-app.get('/api/orders', (req, res) => {
+  const orderId = 'ORD-' + Date.now();
+  console.log('Order received:', orderId);
+  
   res.json({ 
     success: true, 
-    orders: orders,
-    count: orders.length
+    orderId: orderId,
+    message: 'Order received successfully!'
   });
 });
 
 // Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log('✅ SERVER STARTED SUCCESSFULLY!');
-  console.log(`📍 Port: ${PORT}`);
-  console.log('☕ Ready to take orders!');
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('✅ SERVER STARTED SUCCESSFULLY ON PORT ' + PORT);
 });
 
 // Keep alive
-process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received - Graceful shutdown');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
-
 setInterval(() => {
-  console.log('💓 Server alive for', Math.floor(process.uptime()), 'seconds');
+  console.log('💓 Server alive for ' + Math.floor(process.uptime()) + ' seconds');
 }, 30000);
