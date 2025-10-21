@@ -6,18 +6,34 @@ const { Client } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Database connection
-const client = new Client({
-    connectionString: process.env.SUPABASE_CONNECTION_STRING || 'postgresql://postgres:@1234Abcd@db.wmwvgxcwasqestkgqxxs.supabase.co:5432/postgres',
-    ssl: { rejectUnauthorized: false }
-});
+// Database connection with better error handling
+let client;
+let dbConnected = false;
+
+async function connectDatabase() {
+    try {
+        client = new Client({
+            connectionString: process.env.SUPABASE_CONNECTION_STRING,
+            ssl: { rejectUnauthorized: false }
+        });
+        
+        await client.connect();
+        console.log('✅ Connected to Supabase PostgreSQL database');
+        dbConnected = true;
+        
+        // Test the connection
+        await client.query('SELECT NOW()');
+        console.log('✅ Database connection test successful');
+        
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+        console.log('⚠️  Running in limited mode - orders will not be saved to database');
+        dbConnected = false;
+    }
+}
 
 // Connect to database
-client.connect().then(() => {
-    console.log('✅ Connected to Supabase PostgreSQL database');
-}).catch(err => {
-    console.error('❌ Database connection failed:', err);
-});
+connectDatabase();
 
 // Middleware
 app.use(cors());
@@ -33,6 +49,13 @@ app.get('/', (req, res) => {
 
 // Get all orders (for admin viewing)
 app.get('/api/orders', async (req, res) => {
+    if (!dbConnected) {
+        return res.status(503).json({ 
+            success: false, 
+            error: 'Database temporarily unavailable' 
+        });
+    }
+    
     try {
         const result = await client.query(`
             SELECT * FROM orders 
@@ -55,6 +78,17 @@ app.get('/api/orders', async (req, res) => {
 
 // Submit new order
 app.post('/api/orders', async (req, res) => {
+    if (!dbConnected) {
+        // Still return success but log that database is down
+        console.log('📦 Order received but NOT saved to database (DB offline)');
+        return res.json({ 
+            success: true, 
+            orderId: 'TEMP-' + Date.now(),
+            message: 'Order received (offline mode)',
+            warning: 'Database offline - order not permanently saved'
+        });
+    }
+    
     try {
         const orderData = req.body;
         
@@ -102,6 +136,13 @@ app.post('/api/orders', async (req, res) => {
 
 // Get single order by ID
 app.get('/api/orders/:orderId', async (req, res) => {
+    if (!dbConnected) {
+        return res.status(503).json({
+            success: false,
+            error: 'Database temporarily unavailable'
+        });
+    }
+    
     try {
         const { orderId } = req.params;
         
@@ -133,6 +174,13 @@ app.get('/api/orders/:orderId', async (req, res) => {
 
 // Update order status
 app.put('/api/orders/:orderId/status', async (req, res) => {
+    if (!dbConnected) {
+        return res.status(503).json({
+            success: false,
+            error: 'Database temporarily unavailable'
+        });
+    }
+    
     try {
         const { orderId } = req.params;
         const { status } = req.body;
@@ -167,12 +215,15 @@ app.put('/api/orders/:orderId/status', async (req, res) => {
 // Admin page to view all orders
 app.get('/admin', async (req, res) => {
     try {
-        const result = await client.query(`
-            SELECT * FROM orders 
-            ORDER BY created_at DESC
-        `);
+        let orders = [];
         
-        const orders = result.rows;
+        if (dbConnected) {
+            const result = await client.query(`
+                SELECT * FROM orders 
+                ORDER BY created_at DESC
+            `);
+            orders = result.rows;
+        }
         
         let html = `
         <!DOCTYPE html>
@@ -211,6 +262,15 @@ app.get('/admin', async (req, res) => {
                     color: #5d4037;
                     margin-bottom: 10px;
                     font-size: 2.5rem;
+                }
+                
+                .warning {
+                    background: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    color: #856404;
+                    padding: 15px;
+                    border-radius: 5px;
+                    margin: 15px 0;
                 }
                 
                 .stats {
@@ -361,6 +421,7 @@ app.get('/admin', async (req, res) => {
             <div class="header">
                 <h1>☕ Coffee Shop Orders</h1>
                 <p>Real-time order management system</p>
+                ${!dbConnected ? '<div class="warning">⚠️ Database offline - showing limited information</div>' : ''}
                 <div class="stats">
                     <div class="stat-card">
                         <span class="stat-number">${orders.length}</span>
@@ -378,7 +439,7 @@ app.get('/admin', async (req, res) => {
             html += `
             <div class="no-orders">
                 <h2>No Orders Yet</h2>
-                <p>Waiting for customers to place orders...</p>
+                <p>${!dbConnected ? 'Database offline - cannot load orders' : 'Waiting for customers to place orders...'}</p>
             </div>
             `;
         } else {
@@ -453,14 +514,19 @@ app.get('/admin', async (req, res) => {
 // Health check endpoint
 app.get('/health', async (req, res) => {
     try {
-        // Test database connection
-        await client.query('SELECT 1');
+        let databaseStatus = 'Disconnected ❌';
+        
+        if (dbConnected) {
+            await client.query('SELECT 1');
+            databaseStatus = 'Connected ✅';
+        }
         
         res.json({ 
             status: 'OK', 
-            message: 'Server and database are running', 
+            message: 'Server is running', 
             timestamp: new Date().toISOString(),
-            database: 'Connected ✅'
+            database: databaseStatus,
+            port: PORT
         });
     } catch (error) {
         res.status(500).json({
@@ -475,6 +541,14 @@ app.get('/health', async (req, res) => {
 
 // Debug endpoint to see orders
 app.get('/debug-orders', async (req, res) => {
+    if (!dbConnected) {
+        return res.json({ 
+            success: false, 
+            error: 'Database offline',
+            orders: []
+        });
+    }
+    
     try {
         const result = await client.query('SELECT * FROM orders ORDER BY created_at DESC');
         
@@ -500,24 +574,43 @@ app.get('/test', (req, res) => {
         message: 'Server is working!',
         timestamp: new Date().toISOString(),
         port: PORT,
-        database: process.env.SUPABASE_CONNECTION_STRING ? 'Configured ✅' : 'Not configured ❌'
+        database: dbConnected ? 'Connected ✅' : 'Disconnected ❌',
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// Simple status page
+app.get('/status', (req, res) => {
+    res.json({
+        server: 'Running ✅',
+        database: dbConnected ? 'Connected ✅' : 'Disconnected ❌',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
     });
 });
 
 // Error handling for database connection
 process.on('SIGINT', async () => {
     console.log('\n🛑 Shutting down server...');
-    await client.end();
+    if (dbConnected) {
+        await client.end();
+    }
     process.exit(0);
 });
 
-// START SERVER - THIS IS CRITICAL!
+// START SERVER
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 Main site: http://localhost:${PORT}`);
     console.log(`📊 Admin panel: http://localhost:${PORT}/admin`);
     console.log(`🔍 Debug orders: http://localhost:${PORT}/debug-orders`);
     console.log(`❤️ Health check: http://localhost:${PORT}/health`);
-    console.log(`💾 Database: Supabase PostgreSQL`);
+    console.log(`🧪 Test endpoint: http://localhost:${PORT}/test`);
+    console.log(`💾 Database: ${dbConnected ? 'Connected ✅' : 'Disconnected ❌'}`);
     console.log(`✅ Server started successfully!`);
+    
+    if (!dbConnected) {
+        console.log(`⚠️  Running in limited mode - database connection failed`);
+        console.log(`ℹ️  Check your SUPABASE_CONNECTION_STRING environment variable`);
+    }
 });
