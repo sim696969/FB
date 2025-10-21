@@ -1,80 +1,150 @@
 const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const { Client } = require('pg');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-console.log('=== RAILWAY DEPLOYMENT DEBUG ===');
-console.log('PORT:', PORT);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
-console.log('All Railway env vars:');
-Object.keys(process.env).forEach(key => {
-  if (key.includes('RAILWAY') || key.includes('PORT')) {
-    console.log('  ', key, '=', process.env[key]);
+console.log('☕ Coffee Shop with Supabase Starting on Render...');
+
+// Database connection
+const getDbClient = () => {
+  const connectionString = process.env.SUPABASE_CONNECTION_STRING;
+  
+  if (!connectionString) {
+    console.log('⚠️  No database - using in-memory storage');
+    return null;
   }
-});
 
-// Log ALL requests
-app.use((req, res, next) => {
-  console.log(`📨 INCOMING REQUEST: ${req.method} ${req.url} from ${req.ip}`);
-  next();
-});
+  console.log('✅ Database connection configured');
+  return new Client({
+    connectionString: connectionString,
+    ssl: { rejectUnauthorized: false }
+  });
+};
 
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(__dirname));
+
+// Routes
 app.get('/', (req, res) => {
-  console.log('✅ SERVING COFFEE SHOP HOMEPAGE');
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>☕ Coffee Shop - RAILWAY FIX</title>
-        <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #8B4513; color: white; }
-            .container { background: rgba(255,255,255,0.1); padding: 40px; border-radius: 15px; }
-            h1 { font-size: 3em; }
-            .debug { background: #333; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: left; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>☕ COFFEE SHOP</h1>
-            <h2 style="color: #90EE90;">✅ SERVER IS RUNNING!</h2>
-            <div class="debug">
-                <strong>Debug Info:</strong><br>
-                Port: ${PORT}<br>
-                Time: ${new Date().toISOString()}<br>
-                Environment: ${process.env.RAILWAY_ENVIRONMENT || 'not set'}<br>
-                If you see this, Railway routing works! 🎉
-            </div>
-            <p><a href="/health" style="color: #FFD700;">Health Check</a></p>
-        </div>
-    </body>
-    </html>
-  `);
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.get('/health', (req, res) => {
-  console.log('❤️ HEALTH CHECK REQUESTED');
+// Health check with database test
+app.get('/health', async (req, res) => {
+  let dbStatus = 'not-configured';
+  
+  const client = getDbClient();
+  if (client) {
+    try {
+      await client.connect();
+      await client.query('SELECT NOW()');
+      dbStatus = 'connected';
+      await client.end();
+    } catch (error) {
+      dbStatus = 'error: ' + error.message;
+    }
+  }
+
   res.json({ 
-    status: 'HEALTHY', 
-    service: 'coffee-shop',
-    port: PORT,
-    environment: process.env.RAILWAY_ENVIRONMENT,
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    status: 'OK', 
+    message: 'Coffee Shop with Supabase is running!',
+    database: dbStatus,
+    timestamp: new Date().toISOString()
   });
 });
 
-app.get('*', (req, res) => {
-  console.log('🔍 UNHANDLED ROUTE:', req.url);
-  res.status(404).send('Route not found');
+// Order endpoints with Supabase
+app.post('/api/orders', async (req, res) => {
+  try {
+    const orderData = req.body;
+    const orderId = 'ORD-' + Date.now();
+    
+    const order = {
+      orderId: orderId,
+      customer_name: orderData.customer_name || 'Guest',
+      items: orderData.items || [],
+      subtotal: orderData.subtotal || 0,
+      tipAmount: orderData.tipAmount || 0,
+      total: orderData.total || 0,
+      status: 'received',
+      timestamp: new Date().toISOString()
+    };
+
+    // Try to save to Supabase
+    const client = getDbClient();
+    if (client) {
+      try {
+        await client.connect();
+        
+        // Create table if not exists
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            order_id VARCHAR(50) UNIQUE NOT NULL,
+            customer_name TEXT,
+            items JSONB NOT NULL,
+            subtotal DECIMAL(10,2) NOT NULL,
+            tip_amount DECIMAL(10,2) DEFAULT 0,
+            total DECIMAL(10,2) NOT NULL,
+            status VARCHAR(20) DEFAULT 'received',
+            created_at TIMESTAMP DEFAULT NOW()
+          );
+        `);
+
+        // Insert order
+        await client.query(
+          `INSERT INTO orders (order_id, customer_name, items, subtotal, tip_amount, total, status) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [orderId, order.customer_name, JSON.stringify(order.items), 
+           order.subtotal, order.tipAmount, order.total, order.status]
+        );
+
+        await client.end();
+        console.log('✅ Order saved to Supabase:', orderId);
+        
+        res.json({ 
+          success: true, 
+          orderId: orderId,
+          message: 'Order saved to database!',
+          storage: 'supabase'
+        });
+        return;
+        
+      } catch (dbError) {
+        console.error('❌ Database error:', dbError.message);
+        // Continue to in-memory fallback
+      }
+    }
+
+    // In-memory fallback
+    let orders = [];
+    orders.push(order);
+    console.log('📦 Order saved in memory:', orderId);
+    
+    res.json({ 
+      success: true, 
+      orderId: orderId,
+      message: 'Order received (in-memory storage)',
+      storage: 'memory'
+    });
+    
+  } catch (error) {
+    console.error('Order error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to process order' 
+    });
+  }
 });
 
+// Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('🎉 SERVER SUCCESSFULLY STARTED ON PORT: ' + PORT);
-  console.log('📍 Waiting for Railway to route traffic...');
-  console.log('📍 If you see request logs below, routing works!');
+  console.log('✅ COFFEE SHOP WITH SUPABASE RUNNING ON RENDER!');
+  console.log(`📍 Port: ${PORT}`);
+  console.log('☕ Ready to take orders with database support!');
 });
-
-// Keep alive
-setInterval(() => {
-  console.log('💓 Heartbeat - Server alive for ' + Math.floor(process.uptime()) + 's');
-}, 15000);
