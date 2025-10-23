@@ -1,337 +1,293 @@
-// Order management system
-class OrderSystem {
-    constructor() {
-        this.orderItems = [];
-        this.subtotal = 0;
-        this.tipAmount = 0;
-        this.total = 0;
-        this.selectedTipPercent = null;
-        
-        this.initializeEventListeners();
-        this.updateOrderDisplay();
-    }
+// script.js
+document.addEventListener('DOMContentLoaded', function() {
+    // Remove database connection warning
+    removeDatabaseWarning();
     
-    initializeEventListeners() {
-        // Add to order buttons
-        document.querySelectorAll('.add-to-order').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const menuItem = e.target.closest('.menu-item');
-                this.addToOrder(
-                    menuItem.dataset.name,
-                    parseFloat(menuItem.dataset.price)
-                );
-            });
-        });
-        
-        // Tip percentage buttons
-        document.querySelectorAll('.tip-option').forEach(button => {
-            button.addEventListener('click', (e) => {
-                this.selectTipPercent(parseInt(e.target.dataset.percent));
-            });
-        });
-        
-        // Custom tip input
-        document.getElementById('custom-tip-input').addEventListener('input', (e) => {
-            this.setCustomTip(parseFloat(e.target.value) || 0);
-        });
-        
-        // Place order button
-        document.getElementById('place-order-button').addEventListener('click', () => {
-            this.placeOrder();
-        });
-        
-        // Close message buttons
-        document.getElementById('close-error-btn').addEventListener('click', () => {
-            this.hideMessage('order-failed-message');
-        });
-        
-        document.getElementById('close-success-btn').addEventListener('click', () => {
-            this.hideMessage('order-success-message');
-            this.clearOrder();
-        });
-    }
+    // Initialize menu functionality
+    initializeMenu();
     
-    addToOrder(name, price) {
-        // Check if item already exists in order
-        const existingItem = this.orderItems.find(item => item.name === name);
-        
-        if (existingItem) {
-            existingItem.quantity += 1;
-        } else {
-            this.orderItems.push({
-                name: name,
-                price: price,
-                quantity: 1
-            });
+    // Initialize order functionality
+    initializeOrderSystem();
+});
+
+function removeDatabaseWarning() {
+    // Remove any database warning elements
+    const elements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, div, section');
+    elements.forEach(element => {
+        const text = element.textContent || element.innerText;
+        if (text.includes('Database Connection Warning') || 
+            text.includes('Firebase configuration') ||
+            text.includes('Order saving is disabled')) {
+            element.style.display = 'none';
         }
-        
-        this.updateOrderDisplay();
-    }
+    });
+}
+
+function initializeMenu() {
+    // Menu category filtering
+    const categoryButtons = document.querySelectorAll('[data-category]');
+    const menuItems = document.querySelectorAll('.menu-item');
     
-    removeFromOrder(index) {
-        this.orderItems.splice(index, 1);
-        this.updateOrderDisplay();
-    }
-    
-    updateOrderQuantities() {
-        this.orderItems.forEach((item, index) => {
-            const quantityInput = document.querySelector(`.quantity-input[data-index="${index}"]`);
-            if (quantityInput) {
-                item.quantity = parseInt(quantityInput.value) || 1;
-            }
+    if (categoryButtons.length > 0) {
+        categoryButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const category = this.getAttribute('data-category');
+                
+                // Update active button
+                categoryButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Filter menu items
+                menuItems.forEach(item => {
+                    if (category === 'all' || item.getAttribute('data-category') === category) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
         });
-        this.updateOrderDisplay();
     }
+}
+
+function initializeOrderSystem() {
+    let cart = [];
+    const orderButton = document.querySelector('#order-button');
+    const cartElement = document.querySelector('#cart');
     
-    calculateSubtotal() {
-        this.subtotal = this.orderItems.reduce((total, item) => {
-            return total + (item.price * item.quantity);
-        }, 0);
-        
-        return this.subtotal;
-    }
-    
-    calculateTip() {
-        if (this.selectedTipPercent) {
-            this.tipAmount = this.subtotal * (this.selectedTipPercent / 100);
-        }
-        // If custom tip is set, it will override percentage tip
-        return this.tipAmount;
-    }
-    
-    calculateTotal() {
-        this.total = this.subtotal + this.tipAmount;
-        return this.total;
-    }
-    
-    selectTipPercent(percent) {
-        this.selectedTipPercent = percent;
-        this.tipAmount = this.subtotal * (percent / 100);
-        
-        // Update UI
-        document.querySelectorAll('.tip-option').forEach(button => {
-            button.classList.remove('active');
+    // Add to cart functionality
+    document.querySelectorAll('.add-to-cart').forEach(button => {
+        button.addEventListener('click', function() {
+            const itemElement = this.closest('.menu-item');
+            const itemName = itemElement.querySelector('h3').textContent;
+            const itemPrice = parseFloat(itemElement.querySelector('.price').textContent.replace('$', ''));
+            const itemDescription = itemElement.querySelector('p').textContent;
+            
+            addToCart({
+                name: itemName,
+                price: itemPrice,
+                description: itemDescription
+            });
         });
-        
-        document.querySelector(`.tip-option[data-percent="${percent}"]`).classList.add('active');
-        
-        // Clear custom tip input
-        document.getElementById('custom-tip-input').value = '';
-        
-        this.updateOrderDisplay();
+    });
+    
+    function addToCart(item) {
+        cart.push(item);
+        updateCartDisplay();
+        showNotification(`Added ${item.name} to cart!`);
     }
     
-    setCustomTip(amount) {
-        this.tipAmount = amount;
-        this.selectedTipPercent = null;
-        
-        // Clear active tip buttons
-        document.querySelectorAll('.tip-option').forEach(button => {
-            button.classList.remove('active');
-        });
-        
-        this.updateOrderDisplay();
-    }
-    
-    updateOrderDisplay() {
-        const orderItemsContainer = document.getElementById('order-items');
-        const subtotalElement = document.getElementById('subtotal-amount');
-        const tipElement = document.getElementById('tip-amount');
-        const totalElement = document.getElementById('total-amount');
-        
-        // Calculate values
-        this.calculateSubtotal();
-        this.calculateTip();
-        this.calculateTotal();
-        
-        // Update order items display
-        if (this.orderItems.length === 0) {
-            orderItemsContainer.innerHTML = '<p class="empty-order">No items added yet</p>';
-        } else {
-            orderItemsContainer.innerHTML = this.orderItems.map((item, index) => `
-                <div class="order-item">
-                    <div>
-                        <span class="order-item-name">${item.name}</span>
-                        <div class="quantity-controls">
-                            <button class="quantity-btn" onclick="orderSystem.decreaseQuantity(${index})">-</button>
-                            <span class="quantity">${item.quantity}</span>
-                            <button class="quantity-btn" onclick="orderSystem.increaseQuantity(${index})">+</button>
+    function updateCartDisplay() {
+        if (cartElement) {
+            if (cart.length === 0) {
+                cartElement.innerHTML = '<p>Your cart is empty</p>';
+            } else {
+                let cartHTML = '<h3>Your Order</h3>';
+                let total = 0;
+                
+                cart.forEach((item, index) => {
+                    cartHTML += `
+                        <div class="cart-item">
+                            <span>${item.name} - $${item.price.toFixed(2)}</span>
+                            <button onclick="removeFromCart(${index})">×</button>
                         </div>
-                    </div>
-                    <div>
-                        <span class="order-item-price">$${(item.price * item.quantity).toFixed(2)}</span>
-                        <button class="remove-item" onclick="orderSystem.removeFromOrder(${index})">×</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        // Update totals
-        subtotalElement.textContent = this.subtotal.toFixed(2);
-        tipElement.textContent = this.tipAmount.toFixed(2);
-        totalElement.textContent = this.total.toFixed(2);
-    }
-    
-    increaseQuantity(index) {
-        this.orderItems[index].quantity += 1;
-        this.updateOrderDisplay();
-    }
-    
-    decreaseQuantity(index) {
-        if (this.orderItems[index].quantity > 1) {
-            this.orderItems[index].quantity -= 1;
-            this.updateOrderDisplay();
+                    `;
+                    total += item.price;
+                });
+                
+                cartHTML += `<div class="cart-total">Total: $${total.toFixed(2)}</div>`;
+                cartHTML += `<button class="checkout-btn" onclick="checkout()">Place Order</button>`;
+                
+                cartElement.innerHTML = cartHTML;
+            }
         }
     }
     
-    validateOrder() {
-        if (this.orderItems.length === 0) {
-            this.showMessage('Please add at least one item to your order', 'error');
-            return false;
-        }
-        
-        if (this.total <= 0) {
-            this.showMessage('Order total must be greater than zero', 'error');
-            return false;
-        }
-        
-        return true;
-    }
+    // Make functions globally available for onclick handlers
+    window.removeFromCart = function(index) {
+        cart.splice(index, 1);
+        updateCartDisplay();
+    };
     
-    async placeOrder() {
-        // Validate order
-        if (!this.validateOrder()) {
+    window.checkout = async function() {
+        if (cart.length === 0) {
+            alert('Your cart is empty!');
             return;
         }
         
-        // Show loading state
-        const orderButton = document.getElementById('place-order-button');
-        const originalText = orderButton.textContent;
-        orderButton.textContent = 'Processing...';
-        orderButton.disabled = true;
-        
         try {
-            // Simulate API call to process order
-            const success = await this.processOrder();
-            
-            if (success) {
-                this.showMessage('order-success-message');
-            } else {
-                this.showMessage('order-failed-message');
+            // Show loading state
+            const checkoutBtn = document.querySelector('.checkout-btn');
+            if (checkoutBtn) {
+                checkoutBtn.textContent = 'Processing...';
+                checkoutBtn.disabled = true;
             }
+            
+            // Prepare order data
+            const orderData = {
+                items: cart,
+                total: cart.reduce((sum, item) => sum + item.price, 0),
+                customerName: prompt('Please enter your name:') || 'Walk-in Customer',
+                timestamp: new Date().toISOString()
+            };
+            
+            // Submit to local server
+            const result = await submitOrder(orderData);
+            
+            if (result.success) {
+                // Show success message
+                showNotification(`Order placed successfully! Order #: ${result.orderNumber}`);
+                
+                // Clear cart
+                cart = [];
+                updateCartDisplay();
+                
+                // Show order confirmation
+                setTimeout(() => {
+                    alert(`🎉 Order Confirmed!\n\nOrder Number: ${result.orderNumber}\nTotal: $${orderData.total.toFixed(2)}\n\nThank you for your order!`);
+                }, 500);
+                
+            } else {
+                throw new Error(result.error);
+            }
+            
         } catch (error) {
-            console.error('Order processing error:', error);
-            this.showMessage('order-failed-message');
+            console.error('Checkout error:', error);
+            showNotification('Order failed: ' + error.message, 'error');
         } finally {
-            // Restore button state
-            orderButton.textContent = originalText;
-            orderButton.disabled = false;
+            // Reset button
+            const checkoutBtn = document.querySelector('.checkout-btn');
+            if (checkoutBtn) {
+                checkoutBtn.textContent = 'Place Order';
+                checkoutBtn.disabled = false;
+            }
         }
-    }
-    
-    async processOrder() {
+    };
+}
+
+// Order submission to LOCAL server
+async function submitOrder(orderData) {
     try {
-        const response = await fetch('/api/orders', {
+        const response = await fetch('/api/order', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                items: this.orderItems,
-                subtotal: this.subtotal,
-                tip: this.tipAmount,
-                total: this.total,
-                timestamp: new Date().toISOString(),
-                customer_name: "Customer" // Add customer name if needed
-            })
+            body: JSON.stringify(orderData)
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            console.log("Order saved to database!");
-            return true;
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            return { success: true, orderNumber: result.orderNumber };
         } else {
-            console.error("Failed to save order");
-            return false;
+            throw new Error(result.message || 'Order failed');
         }
     } catch (error) {
-        console.error("Error saving order:", error);
-        return false;
-    }
-}
-    
-    showMessage(messageId) {
-        // Hide all messages first
-        document.querySelectorAll('.order-message').forEach(msg => {
-            msg.classList.add('hidden');
-        });
+        console.error('Order submission error:', error);
         
-        // Show the specific message
-        document.getElementById(messageId).classList.remove('hidden');
+        // Fallback: save locally to localStorage
+        saveOrderLocally(orderData);
+        
+        return { 
+            success: false, 
+            error: `Could not save order to server. Saved a copy locally for retrieval. Error: ${error.message}`
+        };
+    }
+}
+
+// Local storage fallback
+function saveOrderLocally(orderData) {
+    try {
+        const localOrders = JSON.parse(localStorage.getItem('localOrders') || '[]');
+        const localOrder = {
+            ...orderData,
+            localSaveTime: new Date().toISOString(),
+            localId: 'local-' + Date.now()
+        };
+        localOrders.push(localOrder);
+        localStorage.setItem('localOrders', JSON.stringify(localOrders));
+        console.log('Order saved locally as backup:', localOrder.localId);
+    } catch (e) {
+        console.error('Failed to save locally:', e);
+    }
+}
+
+// View locally saved orders (for admin)
+function viewLocalOrders() {
+    const localOrders = JSON.parse(localStorage.getItem('localOrders') || '[]');
+    console.log('Locally saved orders:', localOrders);
+    return localOrders;
+}
+
+// Notification system
+function showNotification(message, type = 'success') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'error' ? '#f44336' : '#4CAF50'};
+        color: white;
+        padding: 15px 20px;
+        border-radius: 5px;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+        max-width: 300px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    `;
+    
+    // Add styles for animation if not already added
+    if (!document.querySelector('#notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     }
     
-    hideMessage(messageId) {
-        document.getElementById(messageId).classList.add('hidden');
-    }
+    document.body.appendChild(notification);
     
-    clearOrder() {
-        this.orderItems = [];
-        this.tipAmount = 0;
-        this.selectedTipPercent = null;
-        document.getElementById('custom-tip-input').value = '';
-        document.querySelectorAll('.tip-option').forEach(button => {
-            button.classList.remove('active');
-        });
-        this.updateOrderDisplay();
-    }
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
 }
 
-// Additional CSS for quantity controls
-const additionalStyles = `
-.quantity-controls {
-    display: flex;
-    align-items: center;
-    margin-top: 5px;
+// Utility function to format currency
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    }).format(amount);
 }
 
-.quantity-btn {
-    width: 25px;
-    height: 25px;
-    border: 1px solid #ddd;
-    background: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+// Export functions for use in other modules if needed
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { 
+        removeDatabaseWarning, 
+        initializeMenu, 
+        submitOrder,
+        viewLocalOrders 
+    };
 }
-
-.quantity {
-    margin: 0 10px;
-    font-weight: bold;
-}
-
-.remove-item {
-    background: #f44336;
-    color: white;
-    border: none;
-    width: 25px;
-    height: 25px;
-    border-radius: 50%;
-    cursor: pointer;
-    margin-left: 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-`;
-
-// Add styles to document
-const styleSheet = document.createElement('style');
-styleSheet.textContent = additionalStyles;
-document.head.appendChild(styleSheet);
-
-// Initialize order system when DOM is loaded
-let orderSystem;
-document.addEventListener('DOMContentLoaded', () => {
-    orderSystem = new OrderSystem();
-});

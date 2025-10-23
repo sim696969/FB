@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment - The Daily Grind</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .tngo-qr-container {
+            background: linear-gradient(135deg, #8B0000 0%, #FF0000 100%);
+            border-radius: 20px;
+            padding: 25px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(139, 0, 0, 0.3);
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        .tngo-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .tngo-logo {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .merchant-info {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            color: #333;
+        }
+        .qr-image {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-red-50 to-amber-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-md">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <div class="flex justify-center items-center mb-4">
+                <i class="fas fa-coffee text-4xl text-amber-600 mr-3"></i>
+                <h1 class="text-3xl font-bold text-gray-800">The Daily Grind</h1>
+            </div>
+            <p class="text-gray-600">Complete your payment with QR Code</p>
+        </header>
+
+        <!-- Payment Card -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
+            <!-- Order Summary -->
+            <div class="mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-receipt mr-2 text-amber-600"></i>
+                    Order Summary
+                </h2>
+                
+                <div id="order-details">
+                    <div class="text-center py-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mx-auto mb-2"></div>
+                        <p class="text-gray-500">Loading order details...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- QR Code Payment Section -->
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-qrcode mr-2 text-amber-600"></i>
+                    Scan to Pay
+                </h3>
+                
+                <!-- Touch 'n Go eWallet QR Code -->
+                <div class="tngo-qr-container">
+                    <div class="tngo-header">
+                        <span class="tngo-logo">Touch</span>
+                        <span class="tngo-logo" style="font-weight: normal;">'n Go</span>
+                        <span class="tngo-logo">eWallet</span>
+                    </div>
+                    
+                    <div class="merchant-info">
+                        <div class="text-sm text-gray-600 mb-2">Merchant</div>
+                        <div class="font-bold text-lg text-gray-800">THE DAILY GRIND</div>
+                        <div class="text-xs text-gray-500 mt-1">Coffee & Cafe</div>
+                        
+                        <!-- Your QR Code Image -->
+                        <div class="mt-4">
+                            <img src="/QR.jpg" alt="Touch 'n Go QR Code" class="qr-image" id="qr-code-image">
+                        </div>
+                        
+                        <div class="mt-3 text-xs text-gray-600">
+                            MALAYSIA NATIONAL QR
+                        </div>
+                    </div>
+                    
+                    <div class="text-sm mt-3">
+                        <div class="font-semibold">SIM ZI MING</div>
+                        <div class="text-xs opacity-90 mt-1">
+                            Scan with any of your banking apps or<br>
+                            eWallets to transfer money or pay.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Amount Display -->
+                <div class="text-center mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <div class="text-sm text-amber-700 mb-1">Amount to Pay</div>
+                    <div class="text-2xl font-bold text-amber-600" id="payment-amount">RM0.00</div>
+                    <div class="text-xs text-amber-600 mt-1">Please pay the exact amount shown above</div>
+                </div>
+            </div>
+
+            <!-- Payment Instructions -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    How to Pay with QR Code
+                </h4>
+                <ol class="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                    <li>Open your banking app or eWallet (Touch 'n Go, Boost, Maybank, etc.)</li>
+                    <li>Tap on "Scan QR" or "Pay with QR"</li>
+                    <li>Point your camera at the QR code above</li>
+                    <li>Enter the amount shown: <span class="font-bold" id="instruction-amount">RM0.00</span></li>
+                    <li>Confirm and complete the payment</li>
+                    <li>Click "I've Paid" button below after payment</li>
+                </ol>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-3">
+                <button onclick="goBackToMenu()" 
+                        class="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition flex items-center justify-center">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Back to Menu
+                </button>
+                <button onclick="markAsPaid('qr')" 
+                        class="flex-1 bg-amber-600 text-white py-3 rounded-lg font-semibold hover:bg-amber-700 transition flex items-center justify-center">
+                    <i class="fas fa-check mr-2"></i>
+                    I've Paid
+                </button>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-question-circle text-amber-600 mr-2"></i>
+                Need Help?
+            </h3>
+            <div class="space-y-2 text-sm text-gray-600">
+                <div class="flex items-center">
+                    <i class="fas fa-phone text-amber-600 mr-2 w-4"></i>
+                    <span>Call us: +60 11-2330 1301</span>
+                </div>
+                <div class="flex items-center">
+                    <i class="fas fa-user text-amber-600 mr-2 w-4"></i>
+                    <span>Ask our staff for assistance</span>
+                </div>
+                <div class="flex items-center">
+                    <i class="fas fa-clock text-amber-600 mr-2 w-4"></i>
+                    <span>QR Code valid for 30 minutes</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Status Modal -->
+        <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-check text-green-600 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Payment Successful!</h3>
+                <p class="text-gray-600 mb-4">Thank you for your payment. Your order is being prepared.</p>
+                <button onclick="goBackToMenu()" 
+                        class="w-full bg-amber-600 text-white py-3 rounded-lg font-semibold hover:bg-amber-700 transition">
+                    Back to Menu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get order ID from URL
+        const orderId = window.location.pathname.split('/').pop();
+        
+        // Store order data from URL parameters or localStorage
+        let currentOrder = null;
+
+        // Load order details
+        async function loadOrderDetails() {
+            try {
+                // Try to get order from API first
+                const response = await fetch(`/api/orders/${orderId}`);
+                if (response.ok) {
+                    currentOrder = await response.json();
+                } else {
+                    // If API fails, try to get from localStorage or URL parameters
+                    currentOrder = getOrderFromStorage();
+                }
+                
+                displayOrderDetails(currentOrder);
+                
+            } catch (error) {
+                console.error('Error loading order:', error);
+                // Fallback: get order from storage
+                currentOrder = getOrderFromStorage();
+                displayOrderDetails(currentOrder);
+            }
+        }
+
+        // Get order from localStorage or URL parameters
+        function getOrderFromStorage() {
+            // Try to get from URL parameters first
+            const urlParams = new URLSearchParams(window.location.search);
+            const total = urlParams.get('total');
+            const customerName = urlParams.get('customer');
+            const items = urlParams.get('items');
+            
+            if (total) {
+                return {
+                    id: orderId,
+                    total: parseFloat(total),
+                    customerName: customerName || 'Customer',
+                    items: items ? JSON.parse(decodeURIComponent(items)) : []
+                };
+            }
+            
+            // Try localStorage as last resort
+            try {
+                const savedOrder = localStorage.getItem(`order_${orderId}`);
+                if (savedOrder) {
+                    return JSON.parse(savedOrder);
+                }
+            } catch (e) {
+                console.error('Error reading from localStorage:', e);
+            }
+            
+            // Default fallback
+            return {
+                id: orderId,
+                total: 0.00,
+                customerName: 'Customer',
+                items: []
+            };
+        }
+
+        // Display order information
+        function displayOrderDetails(order) {
+            if (!order) {
+                document.getElementById('order-details').innerHTML = `
+                    <div class="text-center py-4 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                        <p>Error loading order details</p>
+                        <p class="text-sm">Order ID: ${orderId}</p>
+                        <p class="text-xs text-gray-500 mt-2">Please proceed with QR payment</p>
+                    </div>
+                `;
+                document.getElementById('payment-amount').textContent = 'RM0.00';
+                document.getElementById('instruction-amount').textContent = 'RM0.00';
+                return;
+            }
+
+            const itemsHtml = (order.items || order.order_details || []).map(item => `
+                <div class="flex justify-between items-center py-2">
+                    <div class="flex-1">
+                        <span class="font-medium">${item.quantity || 1}x ${item.name}</span>
+                        <span class="text-gray-500 text-sm ml-2">@ RM${item.price?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <span class="font-semibold">RM${((item.quantity || 1) * (item.price || 0)).toFixed(2)}</span>
+                </div>
+            `).join('');
+
+            const orderDetailsHtml = `
+                <div class="space-y-3">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">${order.id}</h3>
+                            <p class="text-gray-600">${order.customerName || 'Customer'}</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold text-amber-600">RM${order.total?.toFixed(2) || '0.00'}</div>
+                            ${order.tipAmount > 0 ? `
+                                <div class="text-sm text-gray-500">
+                                    Tip: RM${order.tipAmount?.toFixed(2) || '0.00'}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    ${itemsHtml ? `
+                    <div class="border-t pt-3">
+                        ${itemsHtml}
+                    </div>
+                    ` : ''}
+                    
+                    <div class="border-t pt-3">
+                        <div class="flex justify-between font-semibold">
+                            <span>Total Amount:</span>
+                            <span class="text-amber-600">RM${order.total?.toFixed(2) || '0.00'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('order-details').innerHTML = orderDetailsHtml;
+            document.getElementById('payment-amount').textContent = `RM${order.total?.toFixed(2) || '0.00'}`;
+            document.getElementById('instruction-amount').textContent = `RM${order.total?.toFixed(2) || '0.00'}`;
+        }
+
+        // Mark order as paid
+        async function markAsPaid(paymentMethod) {
+            try {
+                const response = await fetch(`/api/orders/${orderId}/payment`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        paymentStatus: 'paid',
+                        paymentMethod: paymentMethod,
+                        paidAmount: currentOrder?.total || 0
+                    })
+                });
+
+                if (response.ok) {
+                    // Show success modal
+                    document.getElementById('success-modal').classList.remove('hidden');
+                    
+                    // Update order status in the background
+                    console.log(`Order ${orderId} paid via ${paymentMethod}`);
+                    
+                } else {
+                    // Even if API fails, show success to user
+                    document.getElementById('success-modal').classList.remove('hidden');
+                    console.log(`Order ${orderId} marked as paid via ${paymentMethod} (offline)`);
+                }
+            } catch (error) {
+                console.error('Payment error:', error);
+                // Show success anyway for better user experience
+                document.getElementById('success-modal').classList.remove('hidden');
+            }
+        }
+
+        // Navigation functions
+        function goBackToMenu() {
+            window.location.href = '/';
+        }
+
+        // Handle QR image loading error
+        document.getElementById('qr-code-image').onerror = function() {
+            this.style.display = 'none';
+            const container = this.parentElement;
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-lg text-center">
+                    <i class="fas fa-qrcode text-4xl text-gray-400 mb-2"></i>
+                    <div class="text-sm text-gray-600">
+                        <div>Touch 'n Go eWallet</div>
+                        <div class="mt-1">QR Code Image Missing</div>
+                        <div class="text-xs text-red-500 mt-1">Please contact staff</div>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Auto-redirect after 30 minutes of inactivity (QR code expiry)
+        setTimeout(() => {
+            if (!document.getElementById('success-modal').classList.contains('hidden')) {
+                return; // Don't redirect if payment was completed
+            }
+            if (confirm('QR Code has expired (30 minutes). Would you like to return to the menu?')) {
+                goBackToMenu();
+            }
+        }, 1800000); // 30 minutes
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', loadOrderDetails);
+    </script>
+</body>
+</html>

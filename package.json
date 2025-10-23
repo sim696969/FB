@@ -1,36 +1,17 @@
-<<<<<<< HEAD
 {
   "name": "coffee-shop",
   "version": "1.0.0",
-  "description": "Coffee shop order system with PostgreSQL",
+  "description": "Coffee shop order system with MongoDB",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "pg": "^8.11.3"
+    "express": "^4.18.2",
+    "mongoose": "^7.8.7"
   },
   "engines": {
     "node": ">=16.0.0"
   }
-=======
-{
-  "name": "coffee-shop",
-  "version": "1.0.0",
-  "description": "Coffee shop order system with PostgreSQL",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "pg": "^8.11.3"
-  },
-  "engines": {
-    "node": ">=16.0.0"
-  }
->>>>>>> 0a1e5e1447002b5bf89210a80cfc74b7d21efbc2
 }

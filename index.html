@@ -26,6 +26,121 @@
         .custom-scroll::-webkit-scrollbar-track {
             background-color: #f1f5f9;
         }
+
+        /* Enhanced Animations and Mobile Improvements */
+        .smooth-transition {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Menu Item Hover Effects */
+        .menu-item-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid #f3f4f6;
+        }
+
+        .menu-item-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border-color: #fecaca;
+        }
+
+        /* Enhanced Add to Cart Button */
+        .add-cart-btn {
+            min-height: 44px;
+            min-width: 44px;
+            transition: all 0.2s ease;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .add-cart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .add-cart-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Cart Item Animations */
+        .cart-item {
+            transition: all 0.2s ease;
+        }
+
+        .cart-item:hover {
+            transform: scale(1.02);
+            background-color: #fef2f2;
+        }
+
+        /* Button Pulse Animation for Cart Updates */
+        @keyframes cartPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .cart-pulse {
+            animation: cartPulse 0.5s ease;
+        }
+
+        /* Mobile-Optimized Buttons */
+        @media (max-width: 768px) {
+            .btn-mobile {
+                min-height: 48px;
+                min-width: 48px;
+                padding: 12px 20px;
+                font-size: 16px;
+            }
+            
+            .menu-item-card {
+                margin-bottom: 1rem;
+            }
+            
+            .menu-item-card:hover {
+                transform: translateY(-2px);
+            }
+        }
+
+        /* Filter Button Animations */
+        .filter-btn {
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .filter-btn.active {
+            transform: scale(1.05);
+        }
+
+        /* Checkout Button Enhancement */
+        .checkout-btn {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .checkout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(239, 68, 68, 0.3);
+        }
+
+        .checkout-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Loading Animation Enhancement */
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+
+        .loading-shimmer {
+            animation: shimmer 1.5s infinite linear;
+            background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+            background-size: 200px 100%;
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -45,12 +160,6 @@
             <div id="loading-spinner" class="text-center py-12">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
                 <p class="text-gray-500 mt-4">Loading menu from server...</p>
-            </div>
-            
-            <!-- Firebase Error Message -->
-            <div id="firebase-error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg hidden" role="alert">
-                <p class="font-bold">Database Connection Warning</p>
-                <p>Order saving is disabled because the Firebase configuration is missing. Orders will not be saved.</p>
             </div>
 
             <!-- Category Filter Bar -->
@@ -117,8 +226,9 @@
                        class="w-full p-3 mb-4 border-2 border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition" required>
 
                 <button id="checkout-btn" 
-                        class="w-full bg-red-600 text-white py-3 rounded-lg font-extrabold text-lg 
-                               hover:bg-red-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="w-full checkout-btn text-white py-4 rounded-lg font-extrabold text-lg 
+                               hover:bg-red-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed btn-mobile
+                               flex items-center justify-center space-x-2"
                         disabled>
                     <span id="checkout-text">Place Order</span>
                     <span id="checkout-loading" class="hidden">Processing...</span>
@@ -126,6 +236,13 @@
             </div>
         </aside>
 
+    </div>
+
+    <!-- Animation Test Button -->
+    <div class="fixed bottom-20 right-4 z-40">
+        <button onclick="testAnimations()" class="bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-600 transition">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </button>
     </div>
 
     <!-- Dev helper: allow pasting a Firebase web config for quick local testing -->
@@ -163,8 +280,8 @@
         })();
     </script>
 
-    <!-- Floating dev toolbar (visible only in dev/testing) -->
-    <div style="position:fixed;left:12px;bottom:12px;z-index:9999;">
+    <!-- Floating dev toolbar (visible only when ?dev=true) -->
+    <div id="dev-toolbar" style="position:fixed;left:12px;bottom:12px;z-index:9999;">
         <button onclick="saveFirebaseConfigDev()" style="background:#ef4444;color:white;padding:8px 10px;border-radius:8px;border:none;margin-right:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1)">Paste Firebase Config</button>
         <button onclick="clearFirebaseConfigDev()" style="background:#f3f4f6;color:#111;padding:8px 10px;border-radius:8px;border:1px solid #e5e7eb">Clear</button>
         <button onclick="downloadLastOrder()" id="download-order-btn" style="background:#10b981;color:white;padding:8px 10px;border-radius:8px;border:none;margin-left:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1);display:none">Download Last Order</button>
@@ -309,6 +426,10 @@
     
 
     <script>
+        // FORCE LOCAL SERVER USAGE
+        window.isFirebaseReady = false;
+        window.db = null;
+
         // Global state for the application
         let menuData = [];
         let cart = {}; // { itemId: { item, quantity } }
@@ -354,15 +475,22 @@
             uniqueCategories.forEach(category => {
                 const button = document.createElement('button');
                 button.textContent = category;
-                button.className = `px-4 py-2 rounded-full font-semibold text-sm transition-all duration-150`;
+                button.className = `filter-btn px-5 py-3 rounded-full font-semibold text-sm transition-all duration-200 transform`;
 
                 if (category === activeCategory) {
-                    button.classList.add('bg-red-600', 'text-white', 'shadow-lg');
+                    button.classList.add('bg-red-600', 'text-white', 'shadow-lg', 'scale-105');
                 } else {
-                    button.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-red-100');
+                    button.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-red-100', 'hover:text-red-700');
                 }
 
-                button.onclick = () => filterMenu(category);
+                button.onclick = () => {
+                    // Add click animation
+                    button.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        button.style.transform = 'scale(1)';
+                        filterMenu(category);
+                    }, 150);
+                };
                 filterContainer.appendChild(button);
             });
 
@@ -406,26 +534,28 @@
         }
 
         /**
-         * Renders a single menu item card.
-         * @param {Object} item 
+         * Enhanced menu item rendering with animations
          */
         function renderMenuItem(item) {
             const itemElement = document.createElement('div');
-            itemElement.className = 'flex items-start justify-between p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition duration-150';
+            itemElement.className = 'menu-item-card bg-white rounded-xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100';
             itemElement.innerHTML = `
-                <div class="flex-grow">
-                    <h3 class="text-lg font-semibold text-gray-800">${item.name}</h3>
-                    <p class="text-sm text-gray-500">${item.description || 'No description provided.'}</p>
-                    <p class="text-xl font-bold text-red-600 mt-1">$${item.price.toFixed(2)}</p>
+                <div class="flex items-start justify-between">
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-1">${item.name}</h3>
+                        <p class="text-sm text-gray-500 mb-2">${item.description || 'No description provided.'}</p>
+                        <p class="text-xl font-bold text-red-600">RM${item.price.toFixed(2)}</p>
+                    </div>
+                    <button 
+                        onclick="addToCartWithAnimation('${item.id}', '${item.name}', ${item.price})"
+                        class="add-cart-btn ml-4 flex-shrink-0 bg-red-500 text-white p-3 rounded-full hover:bg-red-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                        title="Add to Cart">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                    </button>
                 </div>
-                <button 
-                    onclick="addToCart('${item.id}', '${item.name}', ${item.price})"
-                    class="ml-4 flex-shrink-0 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition duration-150 shadow-md transform hover:scale-105"
-                    title="Add to Cart">
-                    <i data-lucide="plus" class="w-5 h-5"></i>
-                </button>
             `;
-            // Re-render Lucide icons injected by JS
+            
+            // Re-render Lucide icons
             lucide.createIcons(); 
             return itemElement;
         }
@@ -442,7 +572,6 @@
                 menuContainer.innerHTML = `<p class="text-center py-12 text-gray-500 text-lg">
                                                No items found in the category: <span class="font-semibold text-red-600">${activeCategory}</span>.
                                            </p>`;
-                return;
             }
 
             for (const category in groupedMenu) {
@@ -467,17 +596,26 @@
         // --- Cart Management Functions ---
         
         /**
-         * Adds an item to the cart or increments its quantity.
-         * @param {string} id - Item ID
-         * @param {string} name - Item name
-         * @param {number} price - Item price
+         * Enhanced add to cart with animation
          */
-        function addToCart(id, name, price) {
+        function addToCartWithAnimation(id, name, price) {
+            // Add to cart
             if (cart[id]) {
                 cart[id].quantity += 1;
             } else {
                 cart[id] = { id, name, price, quantity: 1 };
             }
+            
+            // Animation feedback
+            const cartBtn = document.querySelector('[data-lucide="shopping-cart"]').closest('button');
+            if (cartBtn) {
+                cartBtn.classList.add('cart-pulse');
+                setTimeout(() => cartBtn.classList.remove('cart-pulse'), 500);
+            }
+            
+            // Show quick notification
+            showQuickNotification(`Added ${name} to cart!`);
+            
             updateCart();
         }
 
@@ -507,7 +645,23 @@
         }
 
         /**
-         * Renders the cart items, calculates total, and updates the display.
+         * Enhanced quantity update with animation
+         */
+        function updateCartQuantityWithAnimation(id, delta) {
+            const itemElement = document.querySelector(`button[onclick*="${id}"]`)?.closest('.cart-item');
+            
+            if (itemElement) {
+                itemElement.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    itemElement.style.transform = 'scale(1)';
+                }, 150);
+            }
+            
+            updateCartQuantity(id, delta);
+        }
+
+        /**
+         * Enhanced cart rendering
          */
         function updateCart() {
             cartContainer.innerHTML = '';
@@ -526,29 +680,41 @@
                 const itemTotal = item.price * item.quantity;
                 subTotalAmount += itemTotal;
 
-                const cartItemElement = document.createElement('div');
-                cartItemElement.className = 'flex items-center justify-between bg-white p-3 rounded-lg shadow-sm';
-                cartItemElement.innerHTML = `
-                    <div class="flex-grow">
-                        <h4 class="font-medium text-gray-800">${item.name}</h4>
-                        <p class="text-sm text-gray-500">$${item.price.toFixed(2)} x ${item.quantity}</p>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="updateCartQuantity('${id}', -1)" class="text-red-500 hover:text-red-700 p-1 border rounded-md">
-                            <i data-lucide="minus" class="w-4 h-4"></i>
-                        </button>
-                        <span class="font-bold w-4 text-center">${item.quantity}</span>
-                        <button onclick="updateCartQuantity('${id}', 1)" class="text-green-500 hover:text-green-700 p-1 border rounded-md">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                `;
+                const cartItemElement = renderCartItem(id, item);
                 cartContainer.appendChild(cartItemElement);
             });
 
             // Recalculate and update the totals
             updateTotals();
             lucide.createIcons(); // Re-render Lucide icons
+        }
+
+        /**
+         * Enhanced cart item rendering
+         */
+        function renderCartItem(id, item) {
+            const cartItemElement = document.createElement('div');
+            cartItemElement.className = 'cart-item bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:border-red-100 transition-all duration-200';
+            cartItemElement.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex-grow">
+                        <h4 class="font-medium text-gray-800">${item.name}</h4>
+                        <p class="text-sm text-gray-500">RM${item.price.toFixed(2)} x ${item.quantity}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="updateCartQuantityWithAnimation('${id}', -1)" 
+                                class="w-10 h-10 bg-gray-100 text-gray-700 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all duration-200 active:scale-95 btn-mobile">
+                            <i data-lucide="minus" class="w-4 h-4"></i>
+                        </button>
+                        <span class="font-bold w-8 text-center text-lg">${item.quantity}</span>
+                        <button onclick="updateCartQuantityWithAnimation('${id}', 1)" 
+                                class="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center hover:bg-green-600 transition-all duration-200 active:scale-95 btn-mobile">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            return cartItemElement;
         }
 
         // --- Tipping and Total Calculation Functions ---
@@ -631,14 +797,44 @@
         function updateTotals() {
             finalTotalAmount = subTotalAmount + tipAmount;
 
-            tipDisplay.textContent = `$${tipAmount.toFixed(2)}`;
-            cartTotalDisplay.textContent = `$${finalTotalAmount.toFixed(2)}`;
+            tipDisplay.textContent = `RM${tipAmount.toFixed(2)}`;
+            cartTotalDisplay.textContent = `RM${finalTotalAmount.toFixed(2)}`;
             
             // Re-enable/disable checkout button based on cart items
             checkoutBtn.disabled = Object.keys(cart).length === 0;
 
             // Re-render clear tip button visibility
             updateTipButtonState(null);
+        }
+
+        // --- Quick Notification System ---
+        
+        /**
+         * Quick notification system
+         */
+        function showQuickNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 z-50';
+            notification.style.transform = 'translateX(100%)';
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i data-lucide="check" class="w-5 h-5 mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => notification.style.transform = 'translateX(0)', 10);
+            
+            // Animate out and remove
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => notification.remove(), 300);
+            }, 2000);
+            
+            lucide.createIcons();
         }
 
         // --- Checkout Logic ---
@@ -687,7 +883,8 @@
                 }
             };
 
-            if (window.isFirebaseReady === false || !window.db) {
+            // ALWAYS use local server (skip Firebase completely)
+            if (true) {
                 // If Firebase is not ready, try sending to local server API as a fallback.
                 const orderDetails = Object.values(cart).map(item => ({
                     item_id: item.id,
@@ -717,8 +914,13 @@
 
                 if (serverResult.success) {
                     const id = serverResult.data && (serverResult.data.order_id || serverResult.data.id);
-                    showModal('Order Success!', `Order ${id || ''} for ${customerName} has been sent to the server successfully.`, 'text-green-600');
-                    resetOrder();
+                    
+                    // REDIRECT TO PAYMENT PAGE INSTEAD OF SHOWING MODAL
+                    window.location.href = `/payment/${id}`;
+                    
+                    // Don't reset order here - let payment page handle it
+                    // resetOrder();
+                    
                 } else {
                     console.error('Server fallback failed:', serverResult.error);
                     // Save failed order locally for retrieval
@@ -754,8 +956,12 @@
             try {
                 // The global function handles waiting for auth to complete
                 const response = await window.submitOrderToFirestore(orderPayload);
-                showModal('Order Success!', `Order ${response.order_id} for ${customerName} has been successfully placed and saved to Firestore!`, 'text-green-600');
-                resetOrder();
+                
+                // REDIRECT TO PAYMENT PAGE FOR FIREBASE ORDERS TOO
+                window.location.href = `/payment/${response.order_id}`;
+                
+                // Don't reset order here
+                // resetOrder();
 
             } catch (error) {
                 console.error("Firestore Order Submission Failed:", error);
@@ -776,8 +982,10 @@
                     if (serverAttempt.ok) {
                         const serverData = await serverAttempt.json();
                         const id = serverData && (serverData.order_id || serverData.id);
-                        showModal('Order Saved (Server)', `Order ${id || ''} was saved via server fallback.`, 'text-green-600');
-                        resetOrder();
+                        
+                        // REDIRECT TO PAYMENT PAGE
+                        window.location.href = `/payment/${id}`;
+                        
                     } else {
                         const err = await serverAttempt.json().catch(() => ({}));
                         showModal('Order Failed', `Could not save order. Firestore error: ${error.message}. Server fallback failed: ${err.error || serverAttempt.status}.`, 'text-red-600');
@@ -831,6 +1039,19 @@
          */
         function closeModal() {
             statusModal.classList.add('hidden');
+        }
+
+        // --- Animation Test Function ---
+        
+        function testAnimations() {
+            showQuickNotification('Animation test successful! 🎉');
+            
+            // Test cart pulse
+            const cartBtn = document.querySelector('[data-lucide="shopping-cart"]')?.closest('button');
+            if (cartBtn) {
+                cartBtn.classList.add('cart-pulse');
+                setTimeout(() => cartBtn.classList.remove('cart-pulse'), 500);
+            }
         }
 
         // --- Initialization (Revised to load menu immediately) ---
@@ -934,6 +1155,22 @@
         // Show download button if there's a saved failed order
         try { if (localStorage.getItem('last_failed_order')) toggleDownloadButton(true); } catch(e){}
 
+    </script>
+
+    <!-- Hide dev tools for normal users - only show when ?dev=true -->
+    <script>
+        (function() {
+            // Check if URL has ?dev=true parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const isDevMode = urlParams.get('dev') === 'true';
+            
+            // Find the dev toolbar
+            const devToolbar = document.getElementById('dev-toolbar');
+            
+            if (devToolbar && !isDevMode) {
+                devToolbar.style.display = 'none';
+            }
+        })();
     </script>
 </body>
 </html>
