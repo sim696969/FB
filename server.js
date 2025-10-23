@@ -1,4 +1,4 @@
-// server.js - COMPLETE VERSION WITH PAYMENT PROOF SYSTEM
+// server.js - COMPLETE VERSION WITH PAYMENT PROOF SYSTEM AND IMAGE CLEANUP
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
@@ -51,7 +51,7 @@ const paymentProofSchema = new mongoose.Schema({
     customerName: { type: String, required: true },
     customerPhone: { type: String, required: true },
     paymentReference: String,
-    screenshot: { type: String, required: true }, // Base64 image
+    screenshot: { type: String, required: true }, // Base64 image or file path
     status: { type: String, default: 'pending' },
     submittedAt: { type: Date, default: Date.now },
     verifiedAt: Date
@@ -103,6 +103,12 @@ function saveFileProofs() {
 
 loadFileData();
 
+// Create uploads directory if it doesn't exist
+const uploadsDir = './uploads';
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
+
 // Helper function to check MongoDB connection
 const isMongoConnected = () => mongoose.connection.readyState === 1;
 
@@ -136,8 +142,47 @@ async function updateOrderPaymentStatus(orderId, paymentStatus, paymentMethod, c
     }
 }
 
+// Image cleanup function
+async function cleanupPaymentProof(proofId) {
+    try {
+        let proof = null;
+        
+        if (isMongoConnected()) {
+            proof = await PaymentProof.findOne({ id: proofId });
+            if (proof) {
+                // Delete from database
+                await PaymentProof.findOneAndDelete({ id: proofId });
+            }
+        } else {
+            const proofIndex = fileProofs.findIndex(p => p.id === proofId);
+            if (proofIndex !== -1) {
+                proof = fileProofs[proofIndex];
+                fileProofs.splice(proofIndex, 1);
+                saveFileProofs();
+            }
+        }
+        
+        // Clean up image file if it exists in uploads directory
+        if (proof && proof.screenshot && proof.screenshot.startsWith('/uploads/')) {
+            const filename = proof.screenshot.replace('/uploads/', '');
+            const filePath = path.join(__dirname, 'uploads', filename);
+            
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`🗑️ Deleted image file: ${filename}`);
+            }
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error cleaning up payment proof:', error);
+        return false;
+    }
+}
+
 // Middleware
 app.use(express.static(__dirname));
+app.use('/uploads', express.static('uploads')); // Serve uploaded files
 app.use(express.json({ limit: '10mb' })); // Increase limit for base64 images
 
 // Routes
@@ -390,21 +435,51 @@ app.get('/api/orders/export', async (req, res) => {
 // Payment Proof Routes
 app.post('/api/payment-proof', async (req, res) => {
     try {
-        const { orderId, customerName, customerPhone, paymentReference, screenshot, submittedAt } = req.body;
+        const { orderId, customerName, customerPhone, paymentReference, screenshot } = req.body;
         
+        if (!screenshot) {
+            return res.status(400).json({ error: 'No screenshot provided' });
+        }
+
         const proofId = `PROOF-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        
+        let screenshotPath = screenshot;
+        
+        // If base64 image is provided and it's large, save as file
+        if (screenshot.startsWith('data:image/') && screenshot.length > 100000) {
+            try {
+                // Extract file extension from base64
+                const matches = screenshot.match(/^data:image\/([a-zA-Z]+);base64,/);
+                const extension = matches ? matches[1] : 'jpg';
+                
+                // Generate unique filename
+                const filename = `proof-${proofId}.${extension}`;
+                const filePath = path.join(__dirname, 'uploads', filename);
+                
+                // Convert base64 to file
+                const base64Data = screenshot.replace(/^data:image\/\w+;base64,/, '');
+                fs.writeFileSync(filePath, base64Data, 'base64');
+                
+                screenshotPath = `/uploads/${filename}`;
+                console.log(`💾 Saved screenshot as file: ${filename}`);
+            } catch (fileError) {
+                console.error('Error saving screenshot as file:', fileError);
+                // Continue with base64 if file save fails
+            }
+        }
+
         const proofData = {
             id: proofId,
             orderId,
             customerName,
             customerPhone,
             paymentReference,
-            screenshot, // Store base64 image
-            submittedAt: submittedAt || new Date().toISOString(),
+            screenshot: screenshotPath,
+            submittedAt: new Date().toISOString(),
             status: 'pending'
         };
 
-        // Try MongoDB first
+        // Save to database
         if (isMongoConnected()) {
             const proof = new PaymentProof(proofData);
             await proof.save();
@@ -424,7 +499,7 @@ app.post('/api/payment-proof', async (req, res) => {
         
     } catch (error) {
         console.error('Payment proof error:', error);
-        res.status(500).json({ error: 'Failed to submit payment proof' });
+        res.status(500).json({ error: 'Failed to submit payment proof: ' + error.message });
     }
 });
 
@@ -444,10 +519,11 @@ app.get('/api/payment-proofs', async (req, res) => {
     }
 });
 
-// Verify payment proof
+// Verify payment proof (with automatic image cleanup)
 app.put('/api/payment-proofs/:proofId/verify', async (req, res) => {
     try {
         const { proofId } = req.params;
+        const { keepImage = false } = req.body; // Option to keep image for records
         
         if (isMongoConnected()) {
             const proof = await PaymentProof.findOneAndUpdate(
@@ -462,6 +538,14 @@ app.put('/api/payment-proofs/:proofId/verify', async (req, res) => {
             
             // Update order payment status
             await updateOrderPaymentStatus(proof.orderId, 'paid', 'qr_verified');
+            
+            // Clean up image file if not keeping it
+            if (!keepImage) {
+                setTimeout(async () => {
+                    await cleanupPaymentProof(proofId);
+                }, 3000); // Cleanup after 3 seconds
+            }
+            
             res.json({ success: true, proof });
         } else {
             const proof = fileProofs.find(p => p.id === proofId);
@@ -473,11 +557,72 @@ app.put('/api/payment-proofs/:proofId/verify', async (req, res) => {
             
             // Update order payment status
             await updateOrderPaymentStatus(proof.orderId, 'paid', 'qr_verified');
+            
+            // Clean up image file if not keeping it
+            if (!keepImage) {
+                setTimeout(async () => {
+                    await cleanupPaymentProof(proofId);
+                }, 3000);
+            }
+            
             res.json({ success: true, proof });
         }
     } catch (error) {
         console.error('Error verifying payment proof:', error);
         res.status(500).json({ error: 'Failed to verify payment proof' });
+    }
+});
+
+// Delete payment proof (manual cleanup)
+app.delete('/api/payment-proofs/:proofId', async (req, res) => {
+    try {
+        const success = await cleanupPaymentProof(req.params.proofId);
+        if (success) {
+            res.json({ success: true, message: 'Payment proof deleted' });
+        } else {
+            res.status(500).json({ error: 'Failed to delete payment proof' });
+        }
+    } catch (error) {
+        console.error('Error deleting payment proof:', error);
+        res.status(500).json({ error: 'Failed to delete payment proof' });
+    }
+});
+
+// Cleanup all verified proofs
+app.delete('/api/payment-proofs', async (req, res) => {
+    try {
+        let verifiedProofs = [];
+        
+        if (isMongoConnected()) {
+            verifiedProofs = await PaymentProof.find({ status: 'verified' });
+            // Delete from database
+            await PaymentProof.deleteMany({ status: 'verified' });
+        } else {
+            verifiedProofs = fileProofs.filter(p => p.status === 'verified');
+            fileProofs = fileProofs.filter(p => p.status !== 'verified');
+            saveFileProofs();
+        }
+        
+        // Clean up image files
+        for (const proof of verifiedProofs) {
+            if (proof.screenshot && proof.screenshot.startsWith('/uploads/')) {
+                const filename = proof.screenshot.replace('/uploads/', '');
+                const filePath = path.join(__dirname, 'uploads', filename);
+                
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    console.log(`🗑️ Deleted image file: ${filename}`);
+                }
+            }
+        }
+        
+        res.json({ 
+            success: true, 
+            message: `Cleaned up ${verifiedProofs.length} verified payment proofs` 
+        });
+    } catch (error) {
+        console.error('Error cleaning up proofs:', error);
+        res.status(500).json({ error: 'Failed to clean up payment proofs' });
     }
 });
 
@@ -494,6 +639,33 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Cleanup on server start (remove any orphaned files)
+function cleanupOrphanedFiles() {
+    try {
+        const files = fs.readdirSync(uploadsDir);
+        const proofFiles = files.filter(file => file.startsWith('proof-'));
+        
+        let existingProofs = [];
+        if (isMongoConnected()) {
+            // Would need to query all proofs, but for simplicity we'll just log
+            console.log(`📁 Found ${proofFiles.length} proof files in uploads directory`);
+        } else {
+            existingProofs = fileProofs.map(p => {
+                if (p.screenshot && p.screenshot.startsWith('/uploads/')) {
+                    return p.screenshot.replace('/uploads/', '');
+                }
+                return null;
+            }).filter(Boolean);
+        }
+        
+        // In a production system, you'd compare files with database records
+        // and delete orphaned files. For now, we'll just log.
+        console.log(`🔄 Uploads directory ready with ${proofFiles.length} files`);
+    } catch (error) {
+        console.error('Error cleaning up orphaned files:', error);
+    }
+}
+
 // Start server
 app.listen(PORT, () => {
     console.log(`
@@ -502,11 +674,15 @@ app.listen(PORT, () => {
 🌐 URL: http://localhost:${PORT}
 🗄️ Database: ${isMongoConnected() ? 'MongoDB' : 'File-based'}
 📸 Payment Proof System: ✅ Active
+🖼️ Image Cleanup: ✅ Automatic
 ✅ Ready to receive orders!
 👑 Admin: /admin/orders  
 💰 Payment: /payment/:orderId
 📷 Proof Upload: /payment-confirm
     `);
+    
+    // Cleanup orphaned files on startup
+    cleanupOrphanedFiles();
 });
 
 module.exports = app;
