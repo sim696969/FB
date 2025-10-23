@@ -1,4 +1,4 @@
-// server.js - PRODUCTION VERSION WITH MONGODB
+// server.js - COMPLETE VERSION WITH PAYMENT PROOF SYSTEM
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
@@ -7,10 +7,10 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// MongoDB connection - using environment variable for security
+// MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/coffeeshop';
 
-// Connect to MongoDB with better error handling
+// Connect to MongoDB
 mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
@@ -37,25 +37,49 @@ const orderSchema = new mongoose.Schema({
     status: { type: String, default: 'received' },
     paymentStatus: { type: String, default: 'pending' },
     paymentMethod: String,
+    customerPhone: String,
     timestamp: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 });
 
 const Order = mongoose.model('Order', orderSchema);
 
+// Payment Proof Schema
+const paymentProofSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    orderId: { type: String, required: true },
+    customerName: { type: String, required: true },
+    customerPhone: { type: String, required: true },
+    paymentReference: String,
+    screenshot: { type: String, required: true }, // Base64 image
+    status: { type: String, default: 'pending' },
+    submittedAt: { type: Date, default: Date.now },
+    verifiedAt: Date
+});
+
+const PaymentProof = mongoose.model('PaymentProof', paymentProofSchema);
+
 // File-based fallback
 const ordersFile = './orders.json';
+const proofsFile = './payment-proofs.json';
 let fileOrders = [];
+let fileProofs = [];
 
-function loadFileOrders() {
+function loadFileData() {
     try {
         if (fs.existsSync(ordersFile)) {
             const data = fs.readFileSync(ordersFile, 'utf8');
             const fileData = JSON.parse(data);
             fileOrders = fileData.orders || fileData || [];
         }
+        if (fs.existsSync(proofsFile)) {
+            const data = fs.readFileSync(proofsFile, 'utf8');
+            const fileData = JSON.parse(data);
+            fileProofs = fileData.proofs || fileData || [];
+        }
     } catch (error) {
         fileOrders = [];
+        fileProofs = [];
     }
 }
 
@@ -64,18 +88,57 @@ function saveFileOrders() {
         const dataToSave = { orders: fileOrders };
         fs.writeFileSync(ordersFile, JSON.stringify(dataToSave, null, 2));
     } catch (error) {
-        console.error('Error saving to file:', error);
+        console.error('Error saving orders to file:', error);
     }
 }
 
-loadFileOrders();
+function saveFileProofs() {
+    try {
+        const dataToSave = { proofs: fileProofs };
+        fs.writeFileSync(proofsFile, JSON.stringify(dataToSave, null, 2));
+    } catch (error) {
+        console.error('Error saving proofs to file:', error);
+    }
+}
+
+loadFileData();
 
 // Helper function to check MongoDB connection
 const isMongoConnected = () => mongoose.connection.readyState === 1;
 
+// Helper function to update order payment status
+async function updateOrderPaymentStatus(orderId, paymentStatus, paymentMethod, customerPhone = null) {
+    try {
+        if (isMongoConnected()) {
+            const updateData = { 
+                paymentStatus, 
+                paymentMethod,
+                updatedAt: new Date()
+            };
+            if (customerPhone) {
+                updateData.customerPhone = customerPhone;
+            }
+            await Order.findOneAndUpdate({ id: orderId }, updateData);
+        } else {
+            const order = fileOrders.find(o => o.id === orderId);
+            if (order) {
+                order.paymentStatus = paymentStatus;
+                order.paymentMethod = paymentMethod;
+                order.updatedAt = new Date().toISOString();
+                if (customerPhone) {
+                    order.customerPhone = customerPhone;
+                }
+                saveFileOrders();
+            }
+        }
+    } catch (error) {
+        console.error('Error updating order payment status:', error);
+    }
+}
+
 // Middleware
 app.use(express.static(__dirname));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increase limit for base64 images
 
 // Routes
 app.get('/', (req, res) => {
@@ -90,6 +153,10 @@ app.get('/payment/:orderId', (req, res) => {
     res.sendFile(path.join(__dirname, 'payment.html'));
 });
 
+app.get('/payment-confirm', (req, res) => {
+    res.sendFile(path.join(__dirname, 'payment-confirm.html'));
+});
+
 // API Routes
 app.get('/api/status', (req, res) => {
     res.json({ 
@@ -99,7 +166,7 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-// Create order - tries MongoDB first, falls back to file
+// Create order
 app.post('/api/orders', async (req, res) => {
     try {
         const orderData = req.body;
@@ -125,7 +192,8 @@ app.post('/api/orders', async (req, res) => {
             status: 'received',
             timestamp: new Date().toISOString(),
             subtotal: orderData.sub_total || total || 0,
-            tipAmount: orderData.tip_amount || 0
+            tipAmount: orderData.tip_amount || 0,
+            paymentStatus: 'pending'
         };
 
         // Try MongoDB first
@@ -221,16 +289,20 @@ app.put('/api/orders/:id/status', async (req, res) => {
 // Update payment status
 app.put('/api/orders/:id/payment', async (req, res) => {
     try {
-        const { paymentStatus, paymentMethod } = req.body;
+        const { paymentStatus, paymentMethod, customerName, customerPhone } = req.body;
         
         if (isMongoConnected()) {
+            const updateData = { 
+                paymentStatus: paymentStatus,
+                paymentMethod: paymentMethod,
+                updatedAt: new Date()
+            };
+            if (customerName) updateData.customerName = customerName;
+            if (customerPhone) updateData.customerPhone = customerPhone;
+            
             const order = await Order.findOneAndUpdate(
                 { id: req.params.id },
-                { 
-                    paymentStatus: paymentStatus,
-                    paymentMethod: paymentMethod,
-                    updatedAt: new Date()
-                },
+                updateData,
                 { new: true }
             );
             if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -241,6 +313,8 @@ app.put('/api/orders/:id/payment', async (req, res) => {
             order.paymentStatus = paymentStatus;
             order.paymentMethod = paymentMethod;
             order.updatedAt = new Date().toISOString();
+            if (customerName) order.customerName = customerName;
+            if (customerPhone) order.customerPhone = customerPhone;
             saveFileOrders();
             res.json({ success: true, order });
         }
@@ -313,6 +387,100 @@ app.get('/api/orders/export', async (req, res) => {
     }
 });
 
+// Payment Proof Routes
+app.post('/api/payment-proof', async (req, res) => {
+    try {
+        const { orderId, customerName, customerPhone, paymentReference, screenshot, submittedAt } = req.body;
+        
+        const proofId = `PROOF-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const proofData = {
+            id: proofId,
+            orderId,
+            customerName,
+            customerPhone,
+            paymentReference,
+            screenshot, // Store base64 image
+            submittedAt: submittedAt || new Date().toISOString(),
+            status: 'pending'
+        };
+
+        // Try MongoDB first
+        if (isMongoConnected()) {
+            const proof = new PaymentProof(proofData);
+            await proof.save();
+        } else {
+            fileProofs.push(proofData);
+            saveFileProofs();
+        }
+        
+        console.log(`📸 Payment proof submitted for order ${orderId}`);
+        console.log(`👤 Customer: ${customerName} (${customerPhone})`);
+        
+        res.json({ 
+            success: true, 
+            proofId: proofId,
+            message: 'Payment proof submitted successfully' 
+        });
+        
+    } catch (error) {
+        console.error('Payment proof error:', error);
+        res.status(500).json({ error: 'Failed to submit payment proof' });
+    }
+});
+
+// Get all payment proofs
+app.get('/api/payment-proofs', async (req, res) => {
+    try {
+        if (isMongoConnected()) {
+            const proofs = await PaymentProof.find().sort({ submittedAt: -1 });
+            res.json(proofs);
+        } else {
+            const sortedProofs = fileProofs.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+            res.json(sortedProofs);
+        }
+    } catch (error) {
+        console.error('Error fetching payment proofs:', error);
+        res.status(500).json({ error: 'Failed to fetch payment proofs' });
+    }
+});
+
+// Verify payment proof
+app.put('/api/payment-proofs/:proofId/verify', async (req, res) => {
+    try {
+        const { proofId } = req.params;
+        
+        if (isMongoConnected()) {
+            const proof = await PaymentProof.findOneAndUpdate(
+                { id: proofId },
+                { 
+                    status: 'verified',
+                    verifiedAt: new Date()
+                },
+                { new: true }
+            );
+            if (!proof) return res.status(404).json({ error: 'Proof not found' });
+            
+            // Update order payment status
+            await updateOrderPaymentStatus(proof.orderId, 'paid', 'qr_verified');
+            res.json({ success: true, proof });
+        } else {
+            const proof = fileProofs.find(p => p.id === proofId);
+            if (!proof) return res.status(404).json({ error: 'Proof not found' });
+            
+            proof.status = 'verified';
+            proof.verifiedAt = new Date().toISOString();
+            saveFileProofs();
+            
+            // Update order payment status
+            await updateOrderPaymentStatus(proof.orderId, 'paid', 'qr_verified');
+            res.json({ success: true, proof });
+        }
+    } catch (error) {
+        console.error('Error verifying payment proof:', error);
+        res.status(500).json({ error: 'Failed to verify payment proof' });
+    }
+});
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({ 
@@ -321,6 +489,7 @@ app.get('/health', (req, res) => {
         database: isMongoConnected() ? 'mongodb' : 'file',
         uptime: process.uptime(),
         orders_count: isMongoConnected() ? 'unknown' : fileOrders.length,
+        proofs_count: isMongoConnected() ? 'unknown' : fileProofs.length,
         timestamp: new Date().toISOString()
     });
 });
@@ -332,9 +501,11 @@ app.listen(PORT, () => {
 📍 Port: ${PORT}
 🌐 URL: http://localhost:${PORT}
 🗄️ Database: ${isMongoConnected() ? 'MongoDB' : 'File-based'}
+📸 Payment Proof System: ✅ Active
 ✅ Ready to receive orders!
 👑 Admin: /admin/orders  
 💰 Payment: /payment/:orderId
+📷 Proof Upload: /payment-confirm
     `);
 });
 

@@ -67,9 +67,43 @@
             </div>
         </div>
 
+        <!-- Payment Proofs Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-camera mr-2"></i>
+                    Payment Proofs
+                </h2>
+                <button onclick="loadPaymentProofs()" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center">
+                    <i class="fas fa-refresh mr-2"></i>
+                    Refresh Proofs
+                </button>
+            </div>
+            
+            <div id="payment-proofs-container">
+                <div class="text-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                    <p class="text-gray-500">Loading payment proofs...</p>
+                </div>
+            </div>
+        </div>
+
         <footer class="mt-8 text-center text-gray-500 text-sm">
             <p>The Daily Grind Order System • Admin Panel</p>
         </footer>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="image-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-4 max-w-2xl max-h-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Payment Proof</h3>
+                <button onclick="closeImageModal()" class="text-gray-500 hover:text-gray-700 text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <img id="modal-image" src="" alt="Payment proof" class="max-w-full max-h-96 object-contain mx-auto">
+        </div>
     </div>
 
     <script>
@@ -124,6 +158,9 @@
                                         <span class="px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadgeColor(order.status)}">
                                             ${order.status || 'received'}
                                         </span>
+                                        <span class="px-3 py-1 rounded-full text-sm font-semibold ${getPaymentStatusBadgeColor(order.paymentStatus)}">
+                                            ${order.paymentStatus || 'pending'}
+                                        </span>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
                                         <div>
@@ -139,12 +176,24 @@
                                             <strong>Items:</strong> ${(order.items || order.order_details || []).length}
                                         </div>
                                     </div>
+                                    ${order.customerPhone ? `
+                                        <div class="mt-2 text-sm text-gray-600">
+                                            <i class="fas fa-phone mr-2"></i>
+                                            <strong>Phone:</strong> ${order.customerPhone}
+                                        </div>
+                                    ` : ''}
+                                    ${order.paymentMethod ? `
+                                        <div class="mt-1 text-sm text-gray-600">
+                                            <i class="fas fa-credit-card mr-2"></i>
+                                            <strong>Payment:</strong> ${order.paymentMethod}
+                                        </div>
+                                    ` : ''}
                                 </div>
                                 <div class="text-right ml-4">
-                                    <div class="text-2xl font-bold text-green-600">$${order.total?.toFixed(2) || '0.00'}</div>
+                                    <div class="text-2xl font-bold text-green-600">RM${order.total?.toFixed(2) || '0.00'}</div>
                                     ${order.tipAmount > 0 ? `
                                         <div class="text-sm text-gray-500">
-                                            Tip: $${order.tipAmount?.toFixed(2) || '0.00'}
+                                            Tip: RM${order.tipAmount?.toFixed(2) || '0.00'}
                                         </div>
                                     ` : ''}
                                 </div>
@@ -161,9 +210,9 @@
                                         <div class="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
                                             <div>
                                                 <span class="font-medium">${item.quantity || 1}x ${item.name}</span>
-                                                <span class="text-gray-500 text-sm ml-2">@ $${item.price?.toFixed(2) || '0.00'}</span>
+                                                <span class="text-gray-500 text-sm ml-2">@ RM${item.price?.toFixed(2) || '0.00'}</span>
                                             </div>
-                                            <span class="font-semibold">$${((item.quantity || 1) * (item.price || 0)).toFixed(2)}</span>
+                                            <span class="font-semibold">RM${((item.quantity || 1) * (item.price || 0)).toFixed(2)}</span>
                                         </div>
                                     `).join('')}
                                 </div>
@@ -186,6 +235,10 @@
                                 <button onclick="updateOrderStatus('${order.id}', 'completed')" 
                                         class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition flex items-center">
                                     <i class="fas fa-flag-checkered mr-2"></i>Completed
+                                </button>
+                                <button onclick="updatePaymentStatus('${order.id}', 'paid')" 
+                                        class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600 transition flex items-center">
+                                    <i class="fas fa-check-circle mr-2"></i>Mark Paid
                                 </button>
                                 <button onclick="deleteOrder('${order.id}')" 
                                         class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition flex items-center ml-auto">
@@ -233,6 +286,16 @@
             return colors[status] || 'bg-gray-100 text-gray-800';
         }
 
+        function getPaymentStatusBadgeColor(paymentStatus) {
+            const colors = {
+                'pending': 'bg-yellow-100 text-yellow-800',
+                'paid': 'bg-green-100 text-green-800',
+                'pending_verification': 'bg-orange-100 text-orange-800',
+                'failed': 'bg-red-100 text-red-800'
+            };
+            return colors[paymentStatus] || 'bg-gray-100 text-gray-800';
+        }
+
         // Order management functions
         async function updateOrderStatus(orderId, status) {
             try {
@@ -251,6 +314,29 @@
             } catch (error) {
                 console.error('Error updating order:', error);
                 showNotification('Error updating order status', 'error');
+            }
+        }
+
+        async function updatePaymentStatus(orderId, paymentStatus) {
+            try {
+                const response = await fetch(`/api/orders/${orderId}/payment`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        paymentStatus: paymentStatus,
+                        paymentMethod: 'manual_verification'
+                    })
+                });
+                
+                if (response.ok) {
+                    await loadOrders(); // Refresh the list
+                    showNotification(`Payment status updated to ${paymentStatus}`, 'success');
+                } else {
+                    throw new Error('Failed to update payment status');
+                }
+            } catch (error) {
+                console.error('Error updating payment:', error);
+                showNotification('Error updating payment status', 'error');
             }
         }
 
@@ -316,6 +402,108 @@
             }
         }
 
+        // Payment Proofs Management
+        async function loadPaymentProofs() {
+            try {
+                const response = await fetch('/api/payment-proofs');
+                const proofs = await response.json();
+                displayPaymentProofs(proofs);
+            } catch (error) {
+                console.error('Error loading payment proofs:', error);
+                document.getElementById('payment-proofs-container').innerHTML = `
+                    <div class="text-center py-4 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                        <p>Error loading payment proofs</p>
+                        <button onclick="loadPaymentProofs()" class="bg-blue-500 text-white px-4 py-2 rounded-lg mt-2">
+                            Try Again
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function displayPaymentProofs(proofs) {
+            const container = document.getElementById('payment-proofs-container');
+            
+            if (proofs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-camera text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500 text-xl mb-2">No payment proofs yet</p>
+                        <p class="text-gray-400">Payment proofs will appear here when customers upload them</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = proofs.map(proof => `
+                <div class="border rounded-lg p-4 mb-4 ${proof.status === 'pending' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h4 class="font-bold">Order: ${proof.orderId}</h4>
+                            <p class="text-sm text-gray-600">${proof.customerName} • ${proof.customerPhone}</p>
+                            <p class="text-xs text-gray-500">Submitted: ${new Date(proof.submittedAt).toLocaleString()}</p>
+                            ${proof.paymentReference ? `<p class="text-xs">Reference: ${proof.paymentReference}</p>` : ''}
+                        </div>
+                        <span class="px-2 py-1 text-xs rounded-full ${proof.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}">
+                            ${proof.status}
+                        </span>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0">
+                            <img src="${proof.screenshot}" alt="Payment proof" 
+                                 class="h-32 w-32 object-cover rounded border cursor-pointer hover:opacity-80 transition"
+                                 onclick="viewImage('${proof.screenshot}')">
+                            <p class="text-xs text-gray-500 text-center mt-1">Click to enlarge</p>
+                        </div>
+                        <div class="flex-1">
+                            ${proof.status === 'pending' ? `
+                                <button onclick="verifyPaymentProof('${proof.id}')" 
+                                        class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600 transition mb-2">
+                                    <i class="fas fa-check mr-1"></i>Verify Payment
+                                </button>
+                                <p class="text-xs text-gray-600">Verify this payment to mark the order as paid</p>
+                            ` : `
+                                <p class="text-sm text-green-600">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    Verified: ${proof.verifiedAt ? new Date(proof.verifiedAt).toLocaleString() : 'N/A'}
+                                </p>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function viewImage(src) {
+            document.getElementById('modal-image').src = src;
+            document.getElementById('image-modal').classList.remove('hidden');
+        }
+
+        function closeImageModal() {
+            document.getElementById('image-modal').classList.add('hidden');
+        }
+
+        async function verifyPaymentProof(proofId) {
+            try {
+                const response = await fetch(`/api/payment-proofs/${proofId}/verify`, {
+                    method: 'PUT'
+                });
+                
+                if (response.ok) {
+                    await loadPaymentProofs();
+                    await loadOrders(); // Refresh orders list
+                    showNotification('Payment verified successfully!', 'success');
+                } else {
+                    throw new Error('Failed to verify payment');
+                }
+            } catch (error) {
+                console.error('Verification error:', error);
+                showNotification('Failed to verify payment', 'error');
+            }
+        }
+
         // Notification system
         function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
@@ -340,9 +528,13 @@
 
         // Auto-refresh every 30 seconds
         setInterval(loadOrders, 30000);
+        setInterval(loadPaymentProofs, 30000);
 
-        // Load orders when page loads
-        document.addEventListener('DOMContentLoaded', loadOrders);
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadOrders();
+            loadPaymentProofs();
+        });
     </script>
 </body>
 </html>

@@ -119,6 +119,22 @@
                 </div>
             </div>
 
+            <!-- Payment Proof Upload Section -->
+            <div class="bg-green-50 border border-green-200 rounded-xl p-4 mt-6">
+                <h4 class="font-semibold text-green-800 mb-2 flex items-center">
+                    <i class="fas fa-camera mr-2"></i>
+                    Already Paid?
+                </h4>
+                <p class="text-sm text-green-700 mb-3">
+                    Upload screenshot of your payment confirmation as proof.
+                </p>
+                <button onclick="goToPaymentConfirmation()" 
+                        class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition flex items-center justify-center">
+                    <i class="fas fa-upload mr-2"></i>
+                    Upload Payment Proof
+                </button>
+            </div>
+
             <!-- Payment Instructions -->
             <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                 <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
@@ -131,7 +147,7 @@
                     <li>Point your camera at the QR code above</li>
                     <li>Enter the amount shown: <span class="font-bold" id="instruction-amount">RM0.00</span></li>
                     <li>Confirm and complete the payment</li>
-                    <li>Click "I've Paid" button below after payment</li>
+                    <li>Click "I've Paid" button below after payment OR upload screenshot proof above</li>
                 </ol>
             </div>
 
@@ -346,6 +362,12 @@
                 // Show success anyway for better user experience
                 document.getElementById('success-modal').classList.remove('hidden');
             }
+        }
+
+        // Go to payment confirmation page
+        function goToPaymentConfirmation() {
+            const amount = document.getElementById('payment-amount').textContent.replace('RM', '');
+            window.location.href = `/payment-confirm?orderId=${orderId}&total=${amount}`;
         }
 
         // Navigation functions

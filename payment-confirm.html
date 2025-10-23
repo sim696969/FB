@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Confirmation - The Daily Grind</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-green-50 to-amber-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-md">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <div class="flex justify-center items-center mb-4">
+                <i class="fas fa-coffee text-4xl text-amber-600 mr-3"></i>
+                <h1 class="text-3xl font-bold text-gray-800">Payment Confirmation</h1>
+            </div>
+            <p class="text-gray-600">Upload your payment receipt screenshot</p>
+        </header>
+
+        <!-- Payment Confirmation Card -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
+            <!-- Order Summary -->
+            <div class="mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-receipt mr-2 text-amber-600"></i>
+                    Order Summary
+                </h2>
+                
+                <div id="order-details">
+                    <!-- Order details will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-camera mr-2 text-amber-600"></i>
+                    Upload Payment Proof
+                </h3>
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-green-400 transition-colors"
+                     id="upload-area">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+                    <p class="text-gray-600 mb-2">Click to upload payment screenshot</p>
+                    <p class="text-sm text-gray-500">Supported: JPG, PNG, GIF (Max 5MB)</p>
+                    <input type="file" id="screenshot-upload" accept="image/*" class="hidden">
+                </div>
+
+                <!-- Preview Section -->
+                <div id="preview-section" class="hidden mt-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Preview:</h4>
+                    <div class="relative inline-block">
+                        <img id="image-preview" class="max-w-full h-48 rounded-lg border shadow-sm">
+                        <button onclick="removeImage()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer Information -->
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-user mr-2 text-amber-600"></i>
+                    Your Information
+                </h3>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
+                        <input type="text" id="customer-name" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                               placeholder="Enter your name" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input type="tel" id="customer-phone" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                               placeholder="+60 12-345 6789" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Payment Reference (Optional)</label>
+                        <input type="text" id="payment-reference" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                               placeholder="Transaction ID or note">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-3">
+                <button onclick="goBackToPayment()" 
+                        class="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition flex items-center justify-center">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Back
+                </button>
+                <button onclick="submitPaymentProof()" id="submit-btn"
+                        class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                    <i class="fas fa-paper-plane mr-2"></i>
+                    Submit Proof
+                </button>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
+                <i class="fas fa-info-circle mr-2"></i>
+                How to take a good screenshot:
+            </h4>
+            <ol class="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                <li>Open your banking/eWallet app</li>
+                <li>Go to transaction history</li>
+                <li>Take screenshot of the successful payment</li>
+                <li>Make sure amount and date are visible</li>
+                <li>Upload the screenshot above</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-check text-green-600 text-2xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Proof Submitted!</h3>
+            <p class="text-gray-600 mb-4">Thank you! We'll verify your payment and prepare your order.</p>
+            <button onclick="goBackToMenu()" 
+                    class="w-full bg-amber-600 text-white py-3 rounded-lg font-semibold hover:bg-amber-700 transition">
+                Back to Menu
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Get order ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('orderId');
+        const totalAmount = urlParams.get('total');
+        
+        let uploadedImage = null;
+
+        // Load order details
+        async function loadOrderDetails() {
+            try {
+                const response = await fetch(`/api/orders/${orderId}`);
+                if (response.ok) {
+                    const order = await response.json();
+                    displayOrderDetails(order);
+                } else {
+                    // Fallback to URL parameters
+                    displayOrderDetails({
+                        id: orderId,
+                        total: parseFloat(totalAmount) || 0,
+                        customerName: 'Customer'
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading order:', error);
+                displayOrderDetails({
+                    id: orderId,
+                    total: parseFloat(totalAmount) || 0,
+                    customerName: 'Customer'
+                });
+            }
+        }
+
+        function displayOrderDetails(order) {
+            const orderDetailsHtml = `
+                <div class="space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">${order.id}</h3>
+                            <p class="text-gray-600">${order.customerName || 'Customer'}</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold text-green-600">RM${order.total?.toFixed(2) || '0.00'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('order-details').innerHTML = orderDetailsHtml;
+        }
+
+        // Upload functionality
+        document.getElementById('upload-area').addEventListener('click', () => {
+            document.getElementById('screenshot-upload').click();
+        });
+
+        document.getElementById('screenshot-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Check file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('File too large! Please select an image under 5MB.');
+                    return;
+                }
+
+                // Check file type
+                if (!file.type.match('image.*')) {
+                    alert('Please select an image file (JPG, PNG, GIF)');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImage = e.target.result;
+                    document.getElementById('image-preview').src = uploadedImage;
+                    document.getElementById('preview-section').classList.remove('hidden');
+                    document.getElementById('upload-area').classList.add('hidden');
+                    checkFormValidity();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function removeImage() {
+            uploadedImage = null;
+            document.getElementById('screenshot-upload').value = '';
+            document.getElementById('preview-section').classList.add('hidden');
+            document.getElementById('upload-area').classList.remove('hidden');
+            checkFormValidity();
+        }
+
+        function checkFormValidity() {
+            const name = document.getElementById('customer-name').value.trim();
+            const phone = document.getElementById('customer-phone').value.trim();
+            const hasImage = uploadedImage !== null;
+            
+            document.getElementById('submit-btn').disabled = !(name && phone && hasImage);
+        }
+
+        // Form validation
+        document.getElementById('customer-name').addEventListener('input', checkFormValidity);
+        document.getElementById('customer-phone').addEventListener('input', checkFormValidity);
+
+        // Submit payment proof
+        async function submitPaymentProof() {
+            const name = document.getElementById('customer-name').value.trim();
+            const phone = document.getElementById('customer-phone').value.trim();
+            const reference = document.getElementById('payment-reference').value.trim();
+
+            if (!name || !phone || !uploadedImage) {
+                alert('Please fill all required fields and upload payment proof.');
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/payment-proof', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId: orderId,
+                        customerName: name,
+                        customerPhone: phone,
+                        paymentReference: reference,
+                        screenshot: uploadedImage, // Base64 encoded image
+                        submittedAt: new Date().toISOString()
+                    })
+                });
+
+                if (response.ok) {
+                    // Update order payment status
+                    await fetch(`/api/orders/${orderId}/payment`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            paymentStatus: 'pending_verification',
+                            paymentMethod: 'qr_screenshot',
+                            customerName: name,
+                            customerPhone: phone
+                        })
+                    });
+
+                    document.getElementById('success-modal').classList.remove('hidden');
+                } else {
+                    throw new Error('Failed to submit proof');
+                }
+            } catch (error) {
+                console.error('Submission error:', error);
+                alert('Failed to submit payment proof. Please try again.');
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Submit Proof';
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Navigation
+        function goBackToPayment() {
+            window.location.href = `/payment/${orderId}`;
+        }
+
+        function goBackToMenu() {
+            window.location.href = '/';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', loadOrderDetails);
+    </script>
+</body>
+</html>
