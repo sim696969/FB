@@ -1,79 +1,109 @@
-// server.js - DEBUG VERSION
+// server.js - PRODUCTION VERSION WITH MONGODB
 const express = require('express');
+const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// File-based order storage
-const ordersFile = './orders.json';
+// MongoDB connection - using environment variable for security
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/coffeeshop';
 
-// Load existing orders from file
-let orders = [];
-function loadOrders() {
+// Connect to MongoDB with better error handling
+mongoose.connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
+.then(() => console.log('✅ Connected to MongoDB'))
+.catch(err => {
+    console.error('❌ MongoDB connection error:', err);
+    console.log('🔄 Falling back to file-based storage');
+});
+
+// Order Schema
+const orderSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    customerName: { type: String, required: true },
+    items: [{
+        name: String,
+        price: Number,
+        quantity: Number,
+        itemId: String
+    }],
+    subtotal: { type: Number, required: true },
+    tipAmount: { type: Number, default: 0 },
+    total: { type: Number, required: true },
+    status: { type: String, default: 'received' },
+    paymentStatus: { type: String, default: 'pending' },
+    paymentMethod: String,
+    timestamp: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+});
+
+const Order = mongoose.model('Order', orderSchema);
+
+// File-based fallback
+const ordersFile = './orders.json';
+let fileOrders = [];
+
+function loadFileOrders() {
     try {
         if (fs.existsSync(ordersFile)) {
             const data = fs.readFileSync(ordersFile, 'utf8');
             const fileData = JSON.parse(data);
-            orders = fileData.orders || fileData || [];
-            console.log(`📂 Loaded ${orders.length} existing orders`);
+            fileOrders = fileData.orders || fileData || [];
         }
     } catch (error) {
-        console.log('📂 No existing orders file or error loading, starting fresh');
-        orders = [];
+        fileOrders = [];
     }
 }
 
-// Save orders to file
-function saveOrders() {
+function saveFileOrders() {
     try {
-        const dataToSave = { orders: orders };
+        const dataToSave = { orders: fileOrders };
         fs.writeFileSync(ordersFile, JSON.stringify(dataToSave, null, 2));
-        console.log(`💾 Saved ${orders.length} orders to file`);
     } catch (error) {
-        console.error('❌ Error saving orders:', error);
+        console.error('Error saving to file:', error);
     }
 }
 
-// Load orders when server starts
-loadOrders();
+loadFileOrders();
+
+// Helper function to check MongoDB connection
+const isMongoConnected = () => mongoose.connection.readyState === 1;
 
 // Middleware
-app.use(express.static('public'));
-app.use(express.json());
 app.use(express.static(__dirname));
+app.use(express.json());
 
 // Routes
-
-// Main page
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Admin page route
 app.get('/admin/orders', (req, res) => {
     res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-// Status endpoint
+app.get('/payment/:orderId', (req, res) => {
+    res.sendFile(path.join(__dirname, 'payment.html'));
+});
+
+// API Routes
 app.get('/api/status', (req, res) => {
     res.json({ 
         status: 'OK', 
-        db: 'file-based',
-        orders_count: orders.length,
+        db: isMongoConnected() ? 'mongodb' : 'file',
         timestamp: new Date().toISOString()
     });
 });
 
-// Order API endpoint - COMPATIBLE WITH FRONTEND
+// Create order - tries MongoDB first, falls back to file
 app.post('/api/orders', async (req, res) => {
     try {
         const orderData = req.body;
         
-        console.log('📦 Received order data:', JSON.stringify(orderData, null, 2));
-        
-        // Extract items from different possible structures
         let items = [];
         if (orderData.order_details) {
             items = orderData.order_details;
@@ -81,42 +111,39 @@ app.post('/api/orders', async (req, res) => {
             items = orderData.items;
         }
         
-        // Calculate total if not provided
         let total = orderData.total_amount || orderData.total;
         if (!total && items.length > 0) {
             total = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
         }
 
-        // Create order with ID and timestamp
-        const order = {
-            id: `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        const orderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const orderPayload = {
+            id: orderId,
             items: items,
             total: total || 0,
             customerName: orderData.customer_name || orderData.customerName || 'Walk-in Customer',
             status: 'received',
             timestamp: new Date().toISOString(),
             subtotal: orderData.sub_total || total || 0,
-            tipAmount: orderData.tip_amount || 0,
-            originalData: orderData // Keep original for debugging
+            tipAmount: orderData.tip_amount || 0
         };
-        
-        // Add to orders array
-        orders.push(order);
-        
-        // Save to file
-        saveOrders();
-        
-        console.log('✅ Order saved successfully:', {
-            id: order.id,
-            customer: order.customerName,
-            total: order.total,
-            items: order.items.length
-        });
-        
+
+        // Try MongoDB first
+        if (isMongoConnected()) {
+            const order = new Order(orderPayload);
+            await order.save();
+            console.log('✅ Order saved to MongoDB:', orderId);
+        } else {
+            // Fallback to file
+            fileOrders.push(orderPayload);
+            saveFileOrders();
+            console.log('✅ Order saved to file:', orderId);
+        }
+
         res.json({
             success: true,
-            order_id: order.id,
-            message: 'Order received and saved successfully!'
+            order_id: orderId,
+            message: 'Order received successfully!'
         });
         
     } catch (error) {
@@ -128,56 +155,115 @@ app.post('/api/orders', async (req, res) => {
     }
 });
 
-// Get all orders for admin page
-app.get('/api/orders', (req, res) => {
+// Get all orders
+app.get('/api/orders', async (req, res) => {
     try {
-        const sortedOrders = orders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        console.log(`📊 Sending ${sortedOrders.length} orders to admin`);
-        res.json(sortedOrders);
+        if (isMongoConnected()) {
+            const orders = await Order.find().sort({ timestamp: -1 });
+            res.json(orders);
+        } else {
+            const sortedOrders = fileOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            res.json(sortedOrders);
+        }
     } catch (error) {
         console.error('Error fetching orders:', error);
         res.status(500).json({ error: 'Failed to fetch orders' });
     }
 });
 
+// Get single order
+app.get('/api/orders/:id', async (req, res) => {
+    try {
+        if (isMongoConnected()) {
+            const order = await Order.findOne({ id: req.params.id });
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            res.json(order);
+        } else {
+            const order = fileOrders.find(o => o.id === req.params.id);
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            res.json(order);
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch order' });
+    }
+});
+
 // Update order status
-app.put('/api/orders/:id/status', (req, res) => {
+app.put('/api/orders/:id/status', async (req, res) => {
     try {
         const { status } = req.body;
-        const order = orders.find(o => o.id === req.params.id);
         
-        if (!order) {
-            return res.status(404).json({ error: 'Order not found' });
+        if (isMongoConnected()) {
+            const order = await Order.findOneAndUpdate(
+                { id: req.params.id },
+                { 
+                    status: status,
+                    updatedAt: new Date()
+                },
+                { new: true }
+            );
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            res.json({ success: true, order });
+        } else {
+            const order = fileOrders.find(o => o.id === req.params.id);
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            order.status = status;
+            order.updatedAt = new Date().toISOString();
+            saveFileOrders();
+            res.json({ success: true, order });
         }
-        
-        order.status = status;
-        order.updatedAt = new Date().toISOString();
-        saveOrders();
-        
-        console.log(`🔄 Order ${order.id} status updated to: ${status}`);
-        res.json({ success: true, order });
-        
     } catch (error) {
         console.error('Error updating order status:', error);
         res.status(500).json({ error: 'Failed to update order' });
     }
 });
 
-// Delete single order
-app.delete('/api/orders/:id', (req, res) => {
+// Update payment status
+app.put('/api/orders/:id/payment', async (req, res) => {
     try {
-        const index = orders.findIndex(o => o.id === req.params.id);
+        const { paymentStatus, paymentMethod } = req.body;
         
-        if (index === -1) {
-            return res.status(404).json({ error: 'Order not found' });
+        if (isMongoConnected()) {
+            const order = await Order.findOneAndUpdate(
+                { id: req.params.id },
+                { 
+                    paymentStatus: paymentStatus,
+                    paymentMethod: paymentMethod,
+                    updatedAt: new Date()
+                },
+                { new: true }
+            );
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            res.json({ success: true, order });
+        } else {
+            const order = fileOrders.find(o => o.id === req.params.id);
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            order.paymentStatus = paymentStatus;
+            order.paymentMethod = paymentMethod;
+            order.updatedAt = new Date().toISOString();
+            saveFileOrders();
+            res.json({ success: true, order });
         }
-        
-        const deletedOrder = orders.splice(index, 1)[0];
-        saveOrders();
-        
-        console.log(`🗑️ Order deleted: ${deletedOrder.id}`);
-        res.json({ success: true, message: 'Order deleted' });
-        
+    } catch (error) {
+        console.error('Error updating payment:', error);
+        res.status(500).json({ error: 'Failed to update payment' });
+    }
+});
+
+// Delete order
+app.delete('/api/orders/:id', async (req, res) => {
+    try {
+        if (isMongoConnected()) {
+            const order = await Order.findOneAndDelete({ id: req.params.id });
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            res.json({ success: true, message: 'Order deleted' });
+        } else {
+            const index = fileOrders.findIndex(o => o.id === req.params.id);
+            if (index === -1) return res.status(404).json({ error: 'Order not found' });
+            fileOrders.splice(index, 1);
+            saveFileOrders();
+            res.json({ success: true, message: 'Order deleted' });
+        }
     } catch (error) {
         console.error('Error deleting order:', error);
         res.status(500).json({ error: 'Failed to delete order' });
@@ -185,34 +271,42 @@ app.delete('/api/orders/:id', (req, res) => {
 });
 
 // Clear all orders
-app.delete('/api/orders', (req, res) => {
+app.delete('/api/orders', async (req, res) => {
     try {
-        const orderCount = orders.length;
-        orders = [];
-        saveOrders();
-        
-        console.log(`🧹 Cleared all ${orderCount} orders`);
-        res.json({ success: true, message: `Cleared ${orderCount} orders` });
-        
+        if (isMongoConnected()) {
+            const result = await Order.deleteMany({});
+            res.json({ success: true, message: `Cleared ${result.deletedCount} orders` });
+        } else {
+            const orderCount = fileOrders.length;
+            fileOrders = [];
+            saveFileOrders();
+            res.json({ success: true, message: `Cleared ${orderCount} orders` });
+        }
     } catch (error) {
         console.error('Error clearing orders:', error);
         res.status(500).json({ error: 'Failed to clear orders' });
     }
 });
 
-// Export orders (download as JSON)
-app.get('/api/orders/export', (req, res) => {
+// Export orders
+app.get('/api/orders/export', async (req, res) => {
     try {
+        let ordersToExport;
+        if (isMongoConnected()) {
+            ordersToExport = await Order.find().sort({ timestamp: -1 });
+        } else {
+            ordersToExport = fileOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        }
+        
         const exportData = {
             exported_at: new Date().toISOString(),
-            total_orders: orders.length,
-            orders: orders
+            total_orders: ordersToExport.length,
+            orders: ordersToExport
         };
         
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', 'attachment; filename=orders-export.json');
         res.json(exportData);
-        
     } catch (error) {
         console.error('Error exporting orders:', error);
         res.status(500).json({ error: 'Failed to export orders' });
@@ -224,8 +318,9 @@ app.get('/health', (req, res) => {
     res.json({ 
         status: 'healthy',
         server: 'The Daily Grind',
+        database: isMongoConnected() ? 'mongodb' : 'file',
         uptime: process.uptime(),
-        orders: orders.length,
+        orders_count: isMongoConnected() ? 'unknown' : fileOrders.length,
         timestamp: new Date().toISOString()
     });
 });
@@ -236,56 +331,11 @@ app.listen(PORT, () => {
 🍕 The Daily Grind Server Started!
 📍 Port: ${PORT}
 🌐 URL: http://localhost:${PORT}
-💾 Order storage: FILE-BASED (permanent)
-📊 Current orders: ${orders.length}
-👑 Admin panel: /admin/orders  
-💰 Payment page: /payment/:orderId
+🗄️ Database: ${isMongoConnected() ? 'MongoDB' : 'File-based'}
 ✅ Ready to receive orders!
+👑 Admin: /admin/orders  
+💰 Payment: /payment/:orderId
     `);
 });
 
 module.exports = app;
-
-// Payment page route
-app.get('/payment/:orderId', (req, res) => {
-    res.sendFile(path.join(__dirname, 'payment.html'));
-});
-
-// Update order with payment status
-app.put('/api/orders/:id/payment', (req, res) => {
-    try {
-        const { paymentStatus, paymentMethod } = req.body;
-        const order = orders.find(o => o.id === req.params.id);
-        
-        if (!order) {
-            return res.status(404).json({ error: 'Order not found' });
-        }
-        
-        order.paymentStatus = paymentStatus;
-        order.paymentMethod = paymentMethod;
-        order.paymentTime = new Date().toISOString();
-        order.updatedAt = new Date().toISOString();
-        
-        saveOrders();
-        
-        console.log(`💰 Order ${order.id} payment updated: ${paymentStatus}`);
-        res.json({ success: true, order });
-        
-    } catch (error) {
-        console.error('Error updating payment:', error);
-        res.status(500).json({ error: 'Failed to update payment' });
-    }
-});
-
-// Get order details for payment page
-app.get('/api/orders/:id', (req, res) => {
-    try {
-        const order = orders.find(o => o.id === req.params.id);
-        if (!order) {
-            return res.status(404).json({ error: 'Order not found' });
-        }
-        res.json(order);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch order' });
-    }
-});
