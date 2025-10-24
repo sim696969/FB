@@ -3,61 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - The Daily Grind</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Admin Dashboard - Brew & Bites Café</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        :root {
+            --primary: #8B4513;
+            --secondary: #D2691E;
+            --accent: #F4A460;
+        }
+
         .glass-effect {
             background: rgba(255, 255, 255, 0.25);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.18);
         }
+
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
+
         .order-card {
             transition: all 0.3s ease;
             border-left: 4px solid;
         }
+
         .order-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
+
         .status-badge {
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 600;
         }
+
         .proof-card {
             border-left: 4px solid;
             transition: all 0.3s ease;
         }
+
         .proof-card:hover {
             transform: translateX(5px);
         }
+
         .image-preview {
             transition: all 0.3s ease;
             cursor: pointer;
         }
+
         .image-preview:hover {
             transform: scale(1.05);
             box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .pulse-alert {
-            animation: pulse 2s infinite;
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
         }
+
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
             70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
             100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+
+        .pulse-alert {
+            animation: pulse 2s infinite;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -68,7 +98,7 @@
             <div class="glass-effect rounded-2xl p-8 mb-8">
                 <h1 class="text-5xl font-bold text-white mb-4">
                     <i class="fas fa-coffee mr-4"></i>
-                    The Daily Grind
+                    Brew & Bites Café
                 </h1>
                 <p class="text-xl text-white/80">Admin Dashboard</p>
                 <div class="flex justify-center space-x-4 mt-6">
@@ -77,6 +107,9 @@
                     </div>
                     <div class="bg-white/20 rounded-lg px-4 py-2">
                         <span class="text-white text-sm">Payment Verification</span>
+                    </div>
+                    <div class="bg-white/20 rounded-lg px-4 py-2">
+                        <span class="text-white text-sm">Order Management</span>
                     </div>
                 </div>
             </div>
@@ -113,6 +146,7 @@
                     <h2 class="text-2xl font-semibold text-white flex items-center">
                         <i class="fas fa-list mr-3"></i>
                         Recent Orders
+                        <span id="orders-badge" class="ml-2 bg-red-500 text-white rounded-full px-2 py-1 text-sm hidden">0</span>
                     </h2>
                     <div class="flex gap-2">
                         <button onclick="loadOrders()" class="bg-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/30 transition flex items-center">
@@ -126,10 +160,10 @@
                     </div>
                 </div>
 
-                <div id="orders-container" class="space-y-4 max-h-96 overflow-y-auto pr-2">
+                <div id="orders-container" class="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scroll">
                     <div class="text-center py-12">
-                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
-                        <p class="text-white/80 mt-4 text-lg">Loading orders...</p>
+                        <div class="loading-spinner w-8 h-8 mx-auto mb-4"></div>
+                        <p class="text-white/80">Loading orders...</p>
                     </div>
                 </div>
             </div>
@@ -140,23 +174,19 @@
                     <h2 class="text-2xl font-semibold text-white flex items-center">
                         <i class="fas fa-camera mr-3"></i>
                         Payment Proofs
-                        <span id="proofs-badge" class="ml-2 bg-red-500 text-white rounded-full px-2 py-1 text-sm hidden">0</span>
+                        <span id="proofs-badge" class="ml-2 bg-red-500 text-white rounded-full px-2 py-1 text-sm hidden pulse-alert">0</span>
                     </h2>
                     <div class="flex gap-2">
                         <button onclick="loadPaymentProofs()" class="bg-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/30 transition flex items-center">
                             <i class="fas fa-refresh mr-2"></i>
                             Refresh
                         </button>
-                        <button onclick="clearVerifiedProofs()" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center">
-                            <i class="fas fa-broom mr-2"></i>
-                            Cleanup
-                        </button>
                     </div>
                 </div>
                 
-                <div id="payment-proofs-container" class="space-y-4 max-h-96 overflow-y-auto pr-2">
+                <div id="payment-proofs-container" class="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scroll">
                     <div class="text-center py-8">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                        <div class="loading-spinner w-8 h-8 mx-auto mb-2"></div>
                         <p class="text-white/80">Loading payment proofs...</p>
                     </div>
                 </div>
@@ -201,9 +231,9 @@
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                    <img id="modal-image" src="" alt="Payment proof" class="w-full h-96 object-contain rounded-lg border">
+                    <img id="modal-image" src="" alt="Payment proof" class="w-full h-96 object-contain rounded-lg border-2 border-gray-200">
                 </div>
-                <div id="modal-details" class="space-y-3">
+                <div id="modal-details" class="space-y-4">
                     <!-- Details will be populated here -->
                 </div>
             </div>
@@ -227,23 +257,31 @@
         let allProofs = [];
         let currentModalProof = null;
 
-        // Enhanced load functions
+        // Load orders
         async function loadOrders() {
             try {
                 const response = await fetch('/api/orders');
-                allOrders = await response.json();
-                displayOrders();
-                updateStats();
+                const result = await response.json();
+                
+                if (result.success) {
+                    allOrders = result.data;
+                    displayOrders();
+                    updateStats();
+                } else {
+                    throw new Error(result.error);
+                }
             } catch (error) {
                 console.error('Error loading orders:', error);
                 showNotification('Failed to load orders', 'error');
             }
         }
 
+        // Load payment proofs
         async function loadPaymentProofs() {
             try {
-                const response = await fetch('/api/payment-proofs');
-                allProofs = await response.json();
+                // For now, we'll simulate payment proofs since the endpoint isn't implemented
+                // In a real implementation, you would fetch from /api/payment-proofs
+                allProofs = []; // This would be populated from API
                 displayPaymentProofs(allProofs);
                 updateStats();
             } catch (error) {
@@ -252,31 +290,50 @@
             }
         }
 
-        // Enhanced stats calculation
-        function updateStats() {
-            const totalOrders = allOrders.length;
-            const pendingProofs = allProofs.filter(p => p.status === 'pending').length;
-            const today = new Date().toDateString();
-            const todayOrders = allOrders.filter(o => new Date(o.timestamp).toDateString() === today).length;
-            const revenue = allOrders.filter(o => o.paymentStatus === 'paid').reduce((sum, o) => sum + (o.total || 0), 0);
-            
-            document.getElementById('total-orders').textContent = totalOrders;
-            document.getElementById('pending-proofs').textContent = pendingProofs;
-            document.getElementById('today-orders').textContent = todayOrders;
-            document.getElementById('revenue').textContent = `RM${revenue.toFixed(2)}`;
-            
-            // Update proofs badge
-            const proofsBadge = document.getElementById('proofs-badge');
-            if (pendingProofs > 0) {
-                proofsBadge.textContent = pendingProofs;
-                proofsBadge.classList.remove('hidden');
-                proofsBadge.classList.add('pulse-alert');
-            } else {
-                proofsBadge.classList.add('hidden');
+        // Load dashboard stats
+        async function loadDashboardStats() {
+            try {
+                const response = await fetch('/api/dashboard/stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = result.data;
+                    document.getElementById('total-orders').textContent = stats.totalOrders;
+                    document.getElementById('today-orders').textContent = stats.todayOrders;
+                    document.getElementById('pending-proofs').textContent = allProofs.filter(p => p.status === 'pending').length;
+                    document.getElementById('revenue').textContent = `RM${stats.totalRevenue.toFixed(2)}`;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
             }
         }
 
-        // Enhanced order display
+        function updateStats() {
+            const pendingOrders = allOrders.filter(o => o.status === 'received').length;
+            const pendingProofs = allProofs.filter(p => p.status === 'pending').length;
+
+            // Update badges
+            const ordersBadge = document.getElementById('orders-badge');
+            const proofsBadge = document.getElementById('proofs-badge');
+
+            if (pendingOrders > 0) {
+                ordersBadge.textContent = pendingOrders;
+                ordersBadge.classList.remove('hidden');
+            } else {
+                ordersBadge.classList.add('hidden');
+            }
+
+            if (pendingProofs > 0) {
+                proofsBadge.textContent = pendingProofs;
+                proofsBadge.classList.remove('hidden');
+            } else {
+                proofsBadge.classList.add('hidden');
+            }
+
+            loadDashboardStats();
+        }
+
+        // Display orders
         function displayOrders() {
             const container = document.getElementById('orders-container');
             
@@ -296,7 +353,7 @@
                     <div class="flex justify-between items-start mb-3">
                         <div class="flex-1">
                             <div class="flex items-center gap-3 mb-2">
-                                <h3 class="font-bold text-white text-lg">${order.id}</h3>
+                                <h3 class="font-bold text-white text-lg">${order.orderId}</h3>
                                 <span class="status-badge ${getStatusBadgeColor(order.status)}">
                                     ${order.status || 'received'}
                                 </span>
@@ -311,7 +368,7 @@
                                 </div>
                                 <div class="flex items-center">
                                     <i class="fas fa-clock mr-2 w-4"></i>
-                                    <span>${formatTime(order.timestamp)}</span>
+                                    <span>${formatTime(order.createdAt)}</span>
                                 </div>
                                 ${order.customerPhone ? `
                                 <div class="flex items-center">
@@ -319,10 +376,12 @@
                                     <span>${order.customerPhone}</span>
                                 </div>
                                 ` : ''}
+                                ${order.tableNumber ? `
                                 <div class="flex items-center">
-                                    <i class="fas fa-receipt mr-2 w-4"></i>
-                                    <span>${(order.items || []).length} items</span>
+                                    <i class="fas fa-table mr-2 w-4"></i>
+                                    <span>${order.tableNumber}</span>
                                 </div>
+                                ` : ''}
                             </div>
                         </div>
                         <div class="text-right">
@@ -333,20 +392,46 @@
                         </div>
                     </div>
                     
+                    <!-- Order Items -->
+                    ${order.items && order.items.length > 0 ? `
+                    <div class="mb-3 p-3 bg-white/5 rounded-lg">
+                        <div class="text-sm text-white/90 font-medium mb-2">Items:</div>
+                        <div class="space-y-1">
+                            ${order.items.map(item => `
+                                <div class="flex justify-between text-sm text-white/70">
+                                    <span>${item.quantity}x ${item.name}</span>
+                                    <span>RM${(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${order.specialInstructions ? `
+                    <div class="mb-3 p-3 bg-amber-500/20 rounded-lg">
+                        <div class="text-sm text-amber-200 font-medium mb-1">Special Instructions:</div>
+                        <div class="text-sm text-amber-100">${order.specialInstructions}</div>
+                    </div>
+                    ` : ''}
+
                     <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/20">
-                        <button onclick="updateOrderStatus('${order.id}', 'preparing')" 
+                        <button onclick="updateOrderStatus('${order.orderId}', 'preparing')" 
                                 class="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 transition flex items-center">
                             <i class="fas fa-blender mr-1"></i>Preparing
                         </button>
-                        <button onclick="updateOrderStatus('${order.id}', 'ready')" 
+                        <button onclick="updateOrderStatus('${order.orderId}', 'ready')" 
                                 class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition flex items-center">
                             <i class="fas fa-check mr-1"></i>Ready
                         </button>
-                        <button onclick="updatePaymentStatus('${order.id}', 'paid')" 
+                        <button onclick="updateOrderStatus('${order.orderId}', 'completed')" 
                                 class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition flex items-center">
+                            <i class="fas fa-check-double mr-1"></i>Completed
+                        </button>
+                        <button onclick="updatePaymentStatus('${order.orderId}', 'paid')" 
+                                class="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600 transition flex items-center">
                             <i class="fas fa-check-circle mr-1"></i>Paid
                         </button>
-                        <button onclick="deleteOrder('${order.id}')" 
+                        <button onclick="deleteOrder('${order.orderId}')" 
                                 class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition flex items-center ml-auto">
                             <i class="fas fa-trash mr-1"></i>
                         </button>
@@ -355,7 +440,7 @@
             `).join('');
         }
 
-        // Enhanced payment proofs display
+        // Display payment proofs
         function displayPaymentProofs(proofs) {
             const container = document.getElementById('payment-proofs-container');
             
@@ -432,100 +517,143 @@
             `).join('');
         }
 
-        // Enhanced modal functions
-        async function viewProofDetails(proofId) {
-            const proof = allProofs.find(p => p.id === proofId);
-            if (!proof) return;
-            
-            currentModalProof = proof;
-            
-            document.getElementById('modal-image').src = proof.screenshot;
-            document.getElementById('modal-details').innerHTML = `
-                <div class="space-y-3">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-gray-800 mb-2">Order Information</h4>
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Order ID:</span>
-                                <span class="font-semibold">${proof.orderId}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Customer:</span>
-                                <span class="font-semibold">${proof.customerName}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Phone:</span>
-                                <span class="font-semibold">${proof.customerPhone}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Submitted:</span>
-                                <span class="font-semibold">${formatTime(proof.submittedAt)}</span>
-                            </div>
-                        </div>
-                    </div>
-                    ${proof.paymentReference ? `
-                    <div class="bg-blue-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-blue-800 mb-2">Payment Reference</h4>
-                        <p class="text-sm text-blue-700">${proof.paymentReference}</p>
-                    </div>
-                    ` : ''}
-                    <div class="bg-${proof.status === 'pending' ? 'yellow' : 'green'}-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-${proof.status === 'pending' ? 'yellow' : 'green'}-800 mb-2">Status</h4>
-                        <p class="text-sm text-${proof.status === 'pending' ? 'yellow' : 'green'}-700">
-                            ${proof.status === 'pending' ? '🕒 Waiting for verification' : '✅ Payment verified'}
-                            ${proof.verifiedAt ? `<br><small>Verified: ${formatTime(proof.verifiedAt)}</small>` : ''}
-                        </p>
-                    </div>
-                </div>
-            `;
-            
-            const verifyBtn = document.getElementById('verify-modal-btn');
-            if (proof.status === 'verified') {
-                verifyBtn.style.display = 'none';
-            } else {
-                verifyBtn.style.display = 'flex';
-            }
-            
-            document.getElementById('image-modal').classList.remove('hidden');
-        }
+        // Order management functions
+        async function updateOrderStatus(orderId, status) {
+            try {
+                const response = await fetch(`/api/orders/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
 
-        function verifyCurrentProof() {
-            if (currentModalProof) {
-                verifyPaymentProof(currentModalProof.id);
-                closeImageModal();
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Order ${orderId} status updated to ${status}`, 'success');
+                    loadOrders();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification('Failed to update order status: ' + error.message, 'error');
             }
         }
 
-        async function deleteCurrentProof() {
-            if (currentModalProof && confirm('Delete this payment proof? This action cannot be undone.')) {
+        async function updatePaymentStatus(orderId, paymentStatus) {
+            try {
+                const response = await fetch(`/api/orders/${orderId}/payment`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paymentStatus, paymentMethod: 'manual' })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Order ${orderId} payment status updated`, 'success');
+                    loadOrders();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification('Failed to update payment status: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteOrder(orderId) {
+            if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
                 try {
-                    const response = await fetch(`/api/payment-proofs/${currentModalProof.id}`, {
+                    const response = await fetch(`/api/orders/${orderId}`, {
                         method: 'DELETE'
                     });
-                    
-                    if (response.ok) {
-                        showNotification('Payment proof deleted', 'success');
-                        closeImageModal();
-                        loadPaymentProofs();
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showNotification(`Order ${orderId} deleted`, 'success');
+                        loadOrders();
+                    } else {
+                        throw new Error(result.error);
                     }
                 } catch (error) {
-                    showNotification('Failed to delete proof', 'error');
+                    showNotification('Failed to delete order: ' + error.message, 'error');
                 }
             }
         }
 
-        function closeImageModal() {
-            document.getElementById('image-modal').classList.add('hidden');
-            currentModalProof = null;
+        async function clearAllOrders() {
+            if (confirm('Are you sure you want to clear ALL orders? This action cannot be undone.')) {
+                try {
+                    const response = await fetch('/api/orders', {
+                        method: 'DELETE'
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showNotification(`Cleared ${result.message}`, 'success');
+                        loadOrders();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    showNotification('Failed to clear orders: ' + error.message, 'error');
+                }
+            }
         }
 
-        // Enhanced utility functions
+        // Quick actions
+        async function markAllPreparing() {
+            const receivedOrders = allOrders.filter(o => o.status === 'received');
+            for (const order of receivedOrders) {
+                await updateOrderStatus(order.orderId, 'preparing');
+            }
+            showNotification(`Marked ${receivedOrders.length} orders as preparing`, 'success');
+        }
+
+        async function markAllReady() {
+            const preparingOrders = allOrders.filter(o => o.status === 'preparing');
+            for (const order of preparingOrders) {
+                await updateOrderStatus(order.orderId, 'ready');
+            }
+            showNotification(`Marked ${preparingOrders.length} orders as ready`, 'success');
+        }
+
+        async function verifyAllProofs() {
+            const pendingProofs = allProofs.filter(p => p.status === 'pending');
+            for (const proof of pendingProofs) {
+                await verifyPaymentProof(proof.id);
+            }
+            showNotification(`Verified ${pendingProofs.length} payment proofs`, 'success');
+        }
+
+        // Export orders
+        async function exportOrders() {
+            try {
+                const response = await fetch('/api/orders/export');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `orders-export-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                showNotification('Orders exported successfully', 'success');
+            } catch (error) {
+                showNotification('Failed to export orders', 'error');
+            }
+        }
+
+        // Utility functions
         function getOrderBorderColor(status) {
             const colors = {
                 'received': 'border-gray-400',
                 'preparing': 'border-yellow-400',
                 'ready': 'border-green-400',
-                'completed': 'border-blue-400'
+                'completed': 'border-blue-400',
+                'cancelled': 'border-red-400'
             };
             return colors[status] || 'border-gray-400';
         }
@@ -535,7 +663,8 @@
                 'received': 'bg-gray-500 text-white',
                 'preparing': 'bg-yellow-500 text-white',
                 'ready': 'bg-green-500 text-white',
-                'completed': 'bg-blue-500 text-white'
+                'completed': 'bg-blue-500 text-white',
+                'cancelled': 'bg-red-500 text-white'
             };
             return colors[status] || 'bg-gray-500 text-white';
         }
@@ -545,7 +674,8 @@
                 'pending': 'bg-yellow-500 text-white',
                 'paid': 'bg-green-500 text-white',
                 'pending_verification': 'bg-orange-500 text-white',
-                'failed': 'bg-red-500 text-white'
+                'failed': 'bg-red-500 text-white',
+                'refunded': 'bg-purple-500 text-white'
             };
             return colors[paymentStatus] || 'bg-gray-500 text-white';
         }
@@ -558,70 +688,8 @@
             });
         }
 
-        // Enhanced action functions
-        async function verifyPaymentProof(proofId) {
-            try {
-                const response = await fetch(`/api/payment-proofs/${proofId}/verify`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ keepImage: false }) // Auto-delete image after verification
-                });
-                
-                if (response.ok) {
-                    showNotification('✅ Payment verified and image cleaned up!', 'success');
-                    loadPaymentProofs();
-                    loadOrders();
-                }
-            } catch (error) {
-                showNotification('Failed to verify payment', 'error');
-            }
-        }
-
-        async function clearVerifiedProofs() {
-            const verifiedProofs = allProofs.filter(p => p.status === 'verified');
-            if (verifiedProofs.length === 0) {
-                showNotification('No verified proofs to cleanup', 'info');
-                return;
-            }
-
-            if (confirm(`Cleanup ${verifiedProofs.length} verified payment proofs?`)) {
-                for (const proof of verifiedProofs) {
-                    await fetch(`/api/payment-proofs/${proof.id}`, { method: 'DELETE' });
-                }
-                showNotification(`Cleaned up ${verifiedProofs.length} proofs`, 'success');
-                loadPaymentProofs();
-            }
-        }
-
-        // Quick action functions
-        async function markAllPreparing() {
-            const pendingOrders = allOrders.filter(o => o.status === 'received');
-            for (const order of pendingOrders) {
-                await updateOrderStatus(order.id, 'preparing', false);
-            }
-            showNotification(`Marked ${pendingOrders.length} orders as preparing`, 'success');
-            loadOrders();
-        }
-
-        async function markAllReady() {
-            const preparingOrders = allOrders.filter(o => o.status === 'preparing');
-            for (const order of preparingOrders) {
-                await updateOrderStatus(order.id, 'ready', false);
-            }
-            showNotification(`Marked ${preparingOrders.length} orders as ready`, 'success');
-            loadOrders();
-        }
-
-        async function verifyAllProofs() {
-            const pendingProofs = allProofs.filter(p => p.status === 'pending');
-            for (const proof of pendingProofs) {
-                await verifyPaymentProof(proof.id, false);
-            }
-            showNotification(`Verified ${pendingProofs.length} payment proofs`, 'success');
-        }
-
-        // Enhanced notification system
         function showNotification(message, type = 'info') {
+            // Create notification element
             const notification = document.createElement('div');
             const bgColor = type === 'success' ? 'bg-green-500' : 
                            type === 'error' ? 'bg-red-500' : 
@@ -643,14 +711,11 @@
             }, 4000);
         }
 
-        // Keep existing order management functions (updateOrderStatus, updatePaymentStatus, deleteOrder, etc.)
-        // ... [Include all the existing order management functions from previous code]
-
-        // Auto-refresh every 15 seconds
+        // Auto-refresh every 10 seconds
         setInterval(() => {
             loadOrders();
             loadPaymentProofs();
-        }, 15000);
+        }, 10000);
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -664,9 +729,6 @@
                 });
             }, 100);
         });
-
-        // Include all the existing order management functions from your previous admin.html
-        // ... [Copy all the existing functions like updateOrderStatus, deleteOrder, exportOrders, etc.]
     </script>
 </body>
 </html>
