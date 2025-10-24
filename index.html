@@ -3,1174 +3,568 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The F&B Order Kiosk</title>
-    <!-- Load Tailwind CSS -->
+    <title>Brew & Bites Café - Order Online</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* Custom font and scrollbar styling */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #8B4513;
+            --secondary: #D2691E;
+            --accent: #F4A460;
+            --light: #F5F5DC;
+            --dark: #3E2723;
+            --text: #5D4037;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f7f7f7;
+            background: linear-gradient(135deg, #F5F5DC 0%, #F0E6D2 100%);
+            color: var(--text);
         }
-        /* Custom scrollbar for menu and cart */
+
+        .menu-item-card {
+            transition: var(--transition);
+            border: 1px solid #E5E7EB;
+            cursor: pointer;
+        }
+
+        .menu-item-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(139, 69, 19, 0.15);
+            border-color: var(--accent);
+        }
+
+        .add-to-cart-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            transition: var(--transition);
+        }
+
+        .add-to-cart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(139, 69, 19, 0.3);
+        }
+
+        .cart-item {
+            transition: var(--transition);
+        }
+
+        .cart-item:hover {
+            background-color: #FEF7ED;
+        }
+
+        .category-btn {
+            transition: var(--transition);
+        }
+
+        .category-btn.active {
+            transform: scale(1.05);
+        }
+
+        .checkout-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            transition: var(--transition);
+        }
+
+        .checkout-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(139, 69, 19, 0.3);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        .notification {
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification.hiding {
+            animation: slideOut 0.3s ease;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom scrollbar */
         .custom-scroll::-webkit-scrollbar {
             width: 6px;
         }
         .custom-scroll::-webkit-scrollbar-thumb {
-            background-color: #ef4444;
+            background-color: var(--primary);
             border-radius: 3px;
-        }
-        .custom-scroll::-webkit-scrollbar-track {
-            background-color: #f1f5f9;
-        }
-
-        /* Enhanced Animations and Mobile Improvements */
-        .smooth-transition {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Menu Item Hover Effects */
-        .menu-item-card {
-            transition: all 0.3s ease;
-            cursor: pointer;
-            border: 1px solid #f3f4f6;
-        }
-
-        .menu-item-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            border-color: #fecaca;
-        }
-
-        /* Enhanced Add to Cart Button */
-        .add-cart-btn {
-            min-height: 44px;
-            min-width: 44px;
-            transition: all 0.2s ease;
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        }
-
-        .add-cart-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
-        }
-
-        .add-cart-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* Cart Item Animations */
-        .cart-item {
-            transition: all 0.2s ease;
-        }
-
-        .cart-item:hover {
-            transform: scale(1.02);
-            background-color: #fef2f2;
-        }
-
-        /* Button Pulse Animation for Cart Updates */
-        @keyframes cartPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-
-        .cart-pulse {
-            animation: cartPulse 0.5s ease;
-        }
-
-        /* Mobile-Optimized Buttons */
-        @media (max-width: 768px) {
-            .btn-mobile {
-                min-height: 48px;
-                min-width: 48px;
-                padding: 12px 20px;
-                font-size: 16px;
-            }
-            
-            .menu-item-card {
-                margin-bottom: 1rem;
-            }
-            
-            .menu-item-card:hover {
-                transform: translateY(-2px);
-            }
-        }
-
-        /* Filter Button Animations */
-        .filter-btn {
-            transition: all 0.2s ease;
-        }
-
-        .filter-btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .filter-btn.active {
-            transform: scale(1.05);
-        }
-
-        /* Checkout Button Enhancement */
-        .checkout-btn {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .checkout-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 25px rgba(239, 68, 68, 0.3);
-        }
-
-        .checkout-btn:active {
-            transform: translateY(0);
-        }
-
-        /* Loading Animation Enhancement */
-        @keyframes shimmer {
-            0% { background-position: -200px 0; }
-            100% { background-position: 200px 0; }
-        }
-
-        .loading-shimmer {
-            animation: shimmer 1.5s infinite linear;
-            background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
-            background-size: 200px 100%;
         }
     </style>
 </head>
 <body class="min-h-screen">
-
-    <div id="app" class="flex flex-col lg:flex-row min-h-screen bg-gray-50">
-        
-        <!-- Main Content (Menu) -->
-        <main class="flex-grow p-4 lg:p-8 bg-white lg:rounded-l-xl shadow-2xl overflow-y-auto custom-scroll">
-            <header class="mb-6 lg:mb-10 border-b pb-4">
-                <h1 class="text-4xl font-extrabold text-red-600 tracking-tight flex items-center">
-                    <i data-lucide="coffee" class="w-8 h-8 mr-3"></i>
-                    The Daily Grind Menu
-                </h1>
-                <p class="text-gray-500 mt-1">Place your order. Everything is freshly prepared!</p>
-            </header>
-
-            <div id="loading-spinner" class="text-center py-12">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
-                <p class="text-gray-500 mt-4">Loading menu from server...</p>
-            </div>
-
-            <!-- Category Filter Bar -->
-            <div id="filter-container" class="mb-6 flex flex-wrap gap-2 hidden">
-                <!-- Filter buttons will be injected here -->
-            </div>
-
-            <!-- Menu Items will be injected here -->
-            <div id="menu-container" class="space-y-8 hidden">
-                <!-- Categories will be rendered dynamically -->
-            </div>
-            
-            <!-- Order Status Modal -->
-            <div id="status-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="document.getElementById('status-modal').classList.add('hidden')">
-                <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">
-                    <h2 id="modal-title" class="text-2xl font-bold mb-3 text-red-600">Order Placed!</h2>
-                    <p id="modal-message" class="text-gray-700 mb-4"></p>
-                    <button type="button" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition" onclick="closeModal()">Close & New Order</button>
+    <!-- Header -->
+    <header class="bg-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-coffee text-2xl text-amber-700"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Brew & Bites</h1>
+                        <p class="text-sm text-gray-600">Order Online</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Ready time removed as requested -->
                 </div>
             </div>
-        </main>
-        
-        <!-- Shopping Cart (Sidebar) -->
-        <aside class="w-full lg:w-96 bg-gray-100 p-4 lg:p-6 shadow-inner flex flex-col">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
-                <i data-lucide="shopping-cart" class="w-6 h-6 mr-2"></i>
-                Your Order
-            </h2>
+        </div>
+    </header>
 
-            <!-- Cart Items List -->
-            <div id="cart-items-container" class="flex-grow space-y-3 overflow-y-auto custom-scroll pr-2 mb-4">
-                <p id="empty-cart-message" class="text-gray-500 italic text-center py-6">Your cart is empty. Add some delicious F&B!</p>
+    <div class="container mx-auto px-4 py-6 max-w-7xl">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Main Content -->
+            <div class="lg:col-span-2">
+                <!-- Hero Section -->
+                <div class="bg-gradient-to-r from-amber-700 to-amber-800 rounded-2xl p-6 text-white mb-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-2xl font-bold mb-2">Fresh Coffee & Pastries</h2>
+                            <p class="text-amber-100">Order your favorites and pay with QR code</p>
+                        </div>
+                        <div class="bg-white/20 rounded-full p-3">
+                            <i class="fas fa-mug-hot text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Filter -->
+                <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
+                    <button class="category-btn px-4 py-2 bg-white rounded-full border border-amber-200 text-amber-700 font-medium whitespace-nowrap active" data-category="all">
+                        All Items
+                    </button>
+                    <button class="category-btn px-4 py-2 bg-white rounded-full border border-amber-200 text-gray-600 font-medium whitespace-nowrap" data-category="coffee">
+                        Coffee
+                    </button>
+                    <button class="category-btn px-4 py-2 bg-white rounded-full border border-amber-200 text-gray-600 font-medium whitespace-nowrap" data-category="pastries">
+                        Pastries
+                    </button>
+                    <button class="category-btn px-4 py-2 bg-white rounded-full border border-amber-200 text-gray-600 font-medium whitespace-nowrap" data-category="drinks">
+                        Drinks
+                    </button>
+                </div>
+
+                <!-- Menu Grid -->
+                <div id="menu-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Menu items will be loaded here -->
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading-state" class="text-center py-12">
+                    <div class="loading-spinner w-12 h-12 mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading menu...</p>
+                </div>
             </div>
 
-            <!-- Tipping Feature -->
-            <div id="tipping-container" class="pt-4 border-t border-gray-300">
-                <h3 class="font-bold text-gray-700 mb-2">Add a Tip</h3>
-                <div class="flex space-x-2 mb-3">
-                    <button onclick="applyTipPercentage(0.15)" class="tip-btn px-3 py-1 text-sm rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-150" data-percent="0.15">15%</button>
-                    <button onclick="applyTipPercentage(0.20)" class="tip-btn px-3 py-1 text-sm rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-150" data-percent="0.20">20%</button>
-                    <button onclick="applyTipPercentage(0.25)" class="tip-btn px-3 py-1 text-sm rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-150" data-percent="0.25">25%</button>
-                    <button onclick="clearTip()" id="clear-tip-btn" class="tip-btn px-3 py-1 text-sm rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition duration-150 hidden">Clear Tip</button>
-                </div>
-                <div class="flex items-center mb-4">
-                    <span class="text-gray-600 mr-2">$</span>
-                    <input type="number" id="custom-tip" placeholder="Custom Tip" min="0" step="0.01"
-                           class="w-full p-2 border-2 border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition text-sm" 
-                           oninput="applyCustomTip()">
-                </div>
-                <div id="tip-display-row" class="flex justify-between items-center text-base mb-2">
-                    <span class="text-gray-600">Tip:</span>
-                    <span id="tip-amount-display" class="font-semibold text-gray-700">$0.00</span>
+            <!-- Cart Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-2xl shadow-lg sticky top-24">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                            <i class="fas fa-shopping-cart mr-2 text-amber-700"></i>
+                            Your Order
+                        </h3>
+                    </div>
+
+                    <!-- Cart Items -->
+                    <div id="cart-items" class="p-4 max-h-96 overflow-y-auto custom-scroll">
+                        <div id="empty-cart" class="text-center py-8">
+                            <i class="fas fa-shopping-cart text-4xl text-gray-300 mb-3"></i>
+                            <p class="text-gray-500">Your cart is empty</p>
+                            <p class="text-sm text-gray-400 mt-1">Add some delicious items!</p>
+                        </div>
+                    </div>
+
+                    <!-- Order Details -->
+                    <div class="p-4 border-t border-gray-200">
+                        <!-- Customer Info -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Your Name *</label>
+                            <input type="text" id="customer-name" placeholder="Enter your name" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">School ID</label>
+                                <input type="text" id="table-number" placeholder="(e.g. DCS2410004)" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Special Instructions</label>
+                            <textarea id="special-instructions" placeholder="Any special requests..." 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
+                                      rows="2"></textarea>
+                        </div>
+
+                        <!-- Tipping -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Add Tip</label>
+                            <div class="flex space-x-2 mb-2">
+                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-amber-100 transition" data-amount="0">
+                                    No Tip
+                                </button>
+                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-amber-100 transition" data-amount="2">
+                                    RM 2
+                                </button>
+                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-amber-100 transition" data-amount="5">
+                                    RM 5
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Order Summary -->
+                        <div class="space-y-2 mb-4">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Subtotal</span>
+                                <span id="subtotal-amount" class="font-medium">RM 0.00</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Tip</span>
+                                <span id="tip-amount" class="font-medium">RM 0.00</span>
+                            </div>
+                            <div class="flex justify-between text-lg font-bold border-t pt-2">
+                                <span>Total</span>
+                                <span id="total-amount" class="text-amber-700">RM 0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Checkout Button -->
+                        <button id="checkout-btn" disabled
+                                class="checkout-btn w-full py-4 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
+                            <i class="fas fa-qrcode"></i>
+                            <span>Proceed to QR Payment</span>
+                        </button>
+
+                        <p class="text-xs text-gray-500 text-center mt-3">
+                            You'll pay with QR code on the next screen
+                        </p>
+                    </div>
                 </div>
             </div>
-            
-            <!-- Order Summary and Checkout -->
-            <div class="mt-auto pt-4 border-t border-gray-300">
-                <div class="flex justify-between items-center text-xl font-bold mb-3">
-                    <span class="text-gray-700">Total:</span>
-                    <span id="cart-total" class="text-red-600">$0.00</span>
-                </div>
-                
-                <input type="text" id="customer-name" placeholder="Your Name for the Order" 
-                       class="w-full p-3 mb-4 border-2 border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition" required>
-
-                <button id="checkout-btn" 
-                        class="w-full checkout-btn text-white py-4 rounded-lg font-extrabold text-lg 
-                               hover:bg-red-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed btn-mobile
-                               flex items-center justify-center space-x-2"
-                        disabled>
-                    <span id="checkout-text">Place Order</span>
-                    <span id="checkout-loading" class="hidden">Processing...</span>
-                </button>
-            </div>
-        </aside>
-
+        </div>
     </div>
 
-    <!-- Animation Test Button -->
-    <div class="fixed bottom-20 right-4 z-40">
-        <button onclick="testAnimations()" class="bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-600 transition">
-            <i data-lucide="sparkles" class="w-5 h-5"></i>
-        </button>
-    </div>
-
-    <!-- Dev helper: allow pasting a Firebase web config for quick local testing -->
-    <script>
-        (function(){
-            try {
-                const saved = localStorage.getItem('dev_firebase_config');
-                if (saved) {
-                    // Provide the same global string name the module expects
-                    window.__firebase_config = saved;
-                }
-            } catch (e) {
-                console.warn('Could not read saved firebase config', e);
-            }
-
-            // Expose helper functions for manual use from console or UI
-            window.saveFirebaseConfigDev = function() {
-                const input = prompt('Paste your Firebase Web config JSON (the object from Firebase console):');
-                if (!input) return;
-                try {
-                    JSON.parse(input);
-                    localStorage.setItem('dev_firebase_config', input);
-                    alert('Saved Firebase config to localStorage. The page will reload to apply it.');
-                    location.reload();
-                } catch (err) {
-                    alert('Invalid JSON: ' + err.message);
-                }
-            };
-
-            window.clearFirebaseConfigDev = function() {
-                localStorage.removeItem('dev_firebase_config');
-                alert('Cleared saved Firebase config. The page will reload.');
-                location.reload();
-            };
-        })();
-    </script>
-
-    <!-- Floating dev toolbar (visible only when ?dev=true) -->
-    <div id="dev-toolbar" style="position:fixed;left:12px;bottom:12px;z-index:9999;">
-        <button onclick="saveFirebaseConfigDev()" style="background:#ef4444;color:white;padding:8px 10px;border-radius:8px;border:none;margin-right:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1)">Paste Firebase Config</button>
-        <button onclick="clearFirebaseConfigDev()" style="background:#f3f4f6;color:#111;padding:8px 10px;border-radius:8px;border:1px solid #e5e7eb">Clear</button>
-        <button onclick="downloadLastOrder()" id="download-order-btn" style="background:#10b981;color:white;padding:8px 10px;border-radius:8px;border:none;margin-left:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1);display:none">Download Last Order</button>
-    </div>
-
-    <!-- Firebase SDK Imports -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, setLogLevel, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- Firebase Initialization ---
-        
-        // Global variables for Firebase services, populated in init()
-        window.db = null;
-        window.auth = null;
-        window.isFirebaseReady = false; 
-        window.userId = 'anonymous';
-        window.appId = 'default-app-id';
-
-        setLogLevel('Debug');
-        
-        // Configuration variables injected by the environment
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        // Reference to the error element outside the module script
-        window.firebaseErrorElement = document.getElementById('firebase-error');
-
-
-        /**
-         * Initializes Firebase and authenticates the user.
-         */
-        async function initializeFirebase() {
-            if (Object.keys(firebaseConfig).length === 0) {
-                console.error("Firebase config is missing. Firestore saving will be disabled.");
-                window.isFirebaseReady = false;
-                
-                // Show visual warning when config is missing
-                if (window.firebaseErrorElement) {
-                    window.firebaseErrorElement.classList.remove('hidden');
-                }
-                return;
-            }
-
-            try {
-                const app = initializeApp(firebaseConfig);
-                window.db = getFirestore(app);
-                window.auth = getAuth(app);
-
-                // Authentication: Use custom token if provided, otherwise sign in anonymously
-                // We don't need to await this, as the onAuthStateChanged listener handles the readiness.
-                if (initialAuthToken) {
-                    signInWithCustomToken(window.auth, initialAuthToken)
-                        .then(() => console.log("Signed in with custom token."))
-                        .catch(error => {
-                            console.error("Custom token sign-in failed:", error);
-                            // Fallback to anonymous sign-in if token fails
-                            signInAnonymously(window.auth);
-                        });
-                } else {
-                    signInAnonymously(window.auth);
-                    console.log("Signed in anonymously.");
-                }
-
-                // --- KEY FIX: Set up auth state listener to update userId and ready state ---
-                // This listener ensures we only set isFirebaseReady to true AFTER authentication is complete.
-                onAuthStateChanged(window.auth, (user) => {
-                    // This is guaranteed to fire after initial sign-in (custom or anonymous)
-                    if (user) {
-                        window.userId = user.uid;
-                    } else {
-                        // This case should be rare, but we handle it.
-                        window.userId = 'unauthenticated_' + crypto.randomUUID();
-                    }
-                    window.isFirebaseReady = true; // Firebase/Auth is now ready
-                    console.log("Firebase/Auth Ready. User ID:", window.userId);
-                    
-                    // Hide error message if initialization succeeds
-                    if (window.firebaseErrorElement) {
-                        window.firebaseErrorElement.classList.add('hidden');
-                    }
-                });
-            } catch (error) {
-                console.error("Firebase initialization failed:", error);
-                window.isFirebaseReady = false;
-                if (window.firebaseErrorElement) {
-                    window.firebaseErrorElement.classList.remove('hidden');
-                    window.firebaseErrorElement.querySelector('p').textContent = `Order saving is disabled. Initialization failed: ${error.message}`;
-                }
-            }
-        }
-
-        /**
-         * Waits for the Firebase services to be initialized and authenticated.
-         * @returns {Promise<void>} Resolves when isFirebaseReady is true.
-         */
-        window.waitForFirebase = function() {
-            return new Promise((resolve) => {
-                if (window.isFirebaseReady) {
-                    return resolve();
-                }
-                const interval = setInterval(() => {
-                    if (window.isFirebaseReady) {
-                        clearInterval(interval);
-                        resolve();
-                    }
-                }, 100); // Check every 100ms
-            });
-        };
-
-        // --- Global Order Functionality ---
-        window.submitOrderToFirestore = async (orderPayload) => {
-            // Wait for Firebase to be ready before proceeding
-            await window.waitForFirebase();
-
-            if (!window.db) {
-                // This will throw if config was missing or auth failed. The error modal will catch this.
-                throw new Error("Firestore not initialized or connection failed.");
-            }
-
-            // Define the path for the orders collection: /artifacts/{appId}/public/data/orders
-            const orderCollectionPath = `artifacts/${window.appId}/public/data/orders`;
-            const ordersCollectionRef = collection(window.db, orderCollectionPath);
-
-            // Add metadata to the payload
-            const orderToSave = {
-                ...orderPayload,
-                timestamp: serverTimestamp(), // Use server timestamp for accurate time
-                status: 'pending',           // Initial status for kitchen view
-                userId: window.userId,       // User who placed the order
-            };
-
-            const docRef = await addDoc(ordersCollectionRef, orderToSave);
-            return { order_id: docRef.id };
-        };
-
-        // Start Firebase initialization immediately, but do NOT block the menu load
-        initializeFirebase();
-    </script>
-    
+    <!-- Notification Container -->
+    <div id="notification-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
     <script>
-        // FORCE LOCAL SERVER USAGE
-        window.isFirebaseReady = false;
-        window.db = null;
+        // Global state
+        let cart = [];
+        let menuItems = [];
+        let currentCategory = 'all';
+        let tipAmount = 0;
 
-        // Global state for the application
-        let menuData = [];
-        let cart = {}; // { itemId: { item, quantity } }
-        let subTotalAmount = 0; // The total before tip
-        let tipAmount = 0;      // The current tip amount
-        let finalTotalAmount = 0; // The total including tip
-        let activeCategory = 'All'; // State to track active filter
-
-        // --- DOM Elements ---
+        // DOM Elements
         const menuContainer = document.getElementById('menu-container');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const filterContainer = document.getElementById('filter-container');
-        const cartContainer = document.getElementById('cart-items-container');
-        const emptyCartMessage = document.getElementById('empty-cart-message');
-        const cartTotalDisplay = document.getElementById('cart-total');
+        const loadingState = document.getElementById('loading-state');
+        const cartItems = document.getElementById('cart-items');
+        const emptyCart = document.getElementById('empty-cart');
         const checkoutBtn = document.getElementById('checkout-btn');
         const customerNameInput = document.getElementById('customer-name');
-        const statusModal = document.getElementById('status-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const modalMessage = document.getElementById('modal-message');
-        const checkoutText = document.getElementById('checkout-text');
-        const checkoutLoading = document.getElementById('checkout-loading');
-        
-        // TIP Elements
-        const tipDisplay = document.getElementById('tip-amount-display');
-        const customTipInput = document.getElementById('custom-tip');
-        const tipButtons = document.querySelectorAll('.tip-btn');
-        const clearTipBtn = document.getElementById('clear-tip-btn');
-        const firebaseErrorElement = document.getElementById('firebase-error'); // Get this element in the main script too
+        const tableNumberInput = document.getElementById('table-number');
+        const specialInstructionsInput = document.getElementById('special-instructions');
+        const subtotalAmount = document.getElementById('subtotal-amount');
+        const tipAmountDisplay = document.getElementById('tip-amount');
+        const totalAmount = document.getElementById('total-amount');
 
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMenu();
+            setupEventListeners();
+        });
 
-        // --- Menu Filtering Functions ---
-        
-        /**
-         * Generates filter buttons based on unique categories.
-         */
-        function renderFilters() {
-            const categories = menuData.map(item => item.category || 'Uncategorized');
-            const uniqueCategories = ['All', ...new Set(categories)];
-
-            filterContainer.innerHTML = '';
-            
-            uniqueCategories.forEach(category => {
-                const button = document.createElement('button');
-                button.textContent = category;
-                button.className = `filter-btn px-5 py-3 rounded-full font-semibold text-sm transition-all duration-200 transform`;
-
-                if (category === activeCategory) {
-                    button.classList.add('bg-red-600', 'text-white', 'shadow-lg', 'scale-105');
-                } else {
-                    button.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-red-100', 'hover:text-red-700');
+        // Load menu from API
+        async function loadMenu() {
+            try {
+                const response = await fetch('/api/menu');
+                const result = await response.json();
+                
+                if (result.success) {
+                    menuItems = result.data;
+                    displayMenuItems();
+                    loadingState.style.display = 'none';
                 }
+            } catch (error) {
+                console.error('Error loading menu:', error);
+                showNotification('Failed to load menu', 'error');
+                // Fallback to default menu
+                loadDefaultMenu();
+            }
+        }
 
-                button.onclick = () => {
-                    // Add click animation
-                    button.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        button.style.transform = 'scale(1)';
-                        filterMenu(category);
-                    }, 150);
-                };
-                filterContainer.appendChild(button);
+        function loadDefaultMenu() {
+            menuItems = [
+                { id: 'espresso', name: 'Espresso', price: 3.50, category: 'coffee', image: 'Espresso.jpeg', description: 'Rich and bold espresso shot' },
+                { id: 'latte', name: 'Latte', price: 4.50, category: 'coffee', image: 'Latte.jpg', description: 'Smooth espresso with steamed milk' },
+                { id: 'cappuccino', name: 'Cappuccino', price: 4.25, category: 'coffee', image: 'Cappuccino.jpeg', description: 'Equal parts espresso, milk, and foam' },
+                { id: 'cold_brew', name: 'Cold Brew', price: 4.75, category: 'coffee', image: 'Cold Brew.jpg', description: '16-hour steeped smooth coffee' },
+                { id: 'chocolate_croissant', name: 'Chocolate Croissant', price: 3.25, category: 'pastries', image: 'Chocolate Croissant.j...', description: 'Flaky croissant with chocolate' },
+                { id: 'blueberry_muffin', name: 'Blueberry Muffin', price: 2.95, category: 'pastries', image: 'Blueberry Muffin.jpeg', description: 'Moist muffin with blueberries' },
+                { id: 'almond_biscotti', name: 'Almond Biscotti', price: 2.50, category: 'pastries', image: 'Aimond Biscotti.jpeg', description: 'Crunchy almond cookies' },
+                { id: 'iced_lemon_tea', name: 'Iced Lemon Tea', price: 3.75, category: 'drinks', image: 'Iced Lemon Tea.jpeg', description: 'Refreshing tea with lemon' },
+                { id: 'orange_juice', name: 'Orange Juice', price: 3.50, category: 'drinks', image: 'Orange Juice.jpeg', description: 'Freshly squeezed orange juice' },
+                { id: 'sparkling_water', name: 'Sparkling Water', price: 2.50, category: 'drinks', image: 'Sparkling Water.jpeg', description: 'Refreshing sparkling water' }
+            ];
+            displayMenuItems();
+            loadingState.style.display = 'none';
+        }
+
+        // Display menu items
+        function displayMenuItems() {
+            const filteredItems = currentCategory === 'all' 
+                ? menuItems 
+                : menuItems.filter(item => item.category === currentCategory);
+
+            menuContainer.innerHTML = filteredItems.map(item => `
+                <div class="menu-item-card bg-white rounded-xl overflow-hidden" data-category="${item.category}">
+                    <div class="relative">
+                        <img src="/picture/${item.image}" alt="${item.name}" 
+                             class="w-full h-48 object-cover" 
+                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIwLjM1ZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                        <div class="absolute top-3 right-3">
+                            <span class="bg-amber-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                ${item.category}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-gray-800 text-lg">${item.name}</h4>
+                            <span class="text-amber-700 font-bold text-lg">RM${item.price.toFixed(2)}</span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-4">${item.description}</p>
+                        <button class="add-to-cart-btn w-full py-3 text-white rounded-lg font-medium flex items-center justify-center space-x-2"
+                                onclick="addToCart('${item.id}')">
+                            <i class="fas fa-plus"></i>
+                            <span>Add to Cart</span>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Category filters
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active', 'bg-amber-100', 'text-amber-700'));
+                    this.classList.add('active', 'bg-amber-100', 'text-amber-700');
+                    currentCategory = this.dataset.category;
+                    displayMenuItems();
+                });
             });
 
-            filterContainer.classList.remove('hidden');
+            // Tip options
+            document.querySelectorAll('.tip-option').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.tip-option').forEach(b => b.classList.remove('bg-amber-500', 'text-white'));
+                    this.classList.add('bg-amber-500', 'text-white');
+                    tipAmount = parseFloat(this.dataset.amount);
+                    updateCartTotals();
+                });
+            });
+
+            // Customer name validation
+            customerNameInput.addEventListener('input', validateCheckout);
         }
 
-        /**
-         * Filters and re-renders the menu display based on the selected category.
-         * @param {string} category - The category to filter by ('All' to show everything).
-         */
-        function filterMenu(category) {
-            activeCategory = category;
-            
-            let filteredItems = menuData;
-            if (category !== 'All') {
-                filteredItems = menuData.filter(item => (item.category || 'Uncategorized') === category);
+        // Cart functions
+        function addToCart(itemId) {
+            const item = menuItems.find(m => m.id === itemId);
+            if (!item) return;
+
+            const existingItem = cart.find(c => c.itemId === itemId);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({
+                    itemId: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: 1,
+                    image: item.image
+                });
             }
 
-            const groupedMenu = groupMenuByCategory(filteredItems);
-            renderMenu(groupedMenu);
-            renderFilters(); // Re-render buttons to update active state
+            updateCartDisplay();
+            showNotification(`Added ${item.name} to cart!`, 'success');
         }
 
+        function removeFromCart(itemId) {
+            cart = cart.filter(item => item.itemId !== itemId);
+            updateCartDisplay();
+        }
 
-        // --- Menu Rendering Functions ---
-        
-        /**
-         * Groups an array of menu items by category.
-         * @param {Array} items 
-         * @returns {Object} Grouped items.
-         */
-        function groupMenuByCategory(items) {
-            return items.reduce((acc, item) => {
-                const category = item.category || 'Uncategorized';
-                if (!acc[category]) {
-                    acc[category] = [];
+        function updateQuantity(itemId, change) {
+            const item = cart.find(c => c.itemId === itemId);
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) {
+                    removeFromCart(itemId);
+                } else {
+                    updateCartDisplay();
                 }
-                acc[category].push(item);
-                return acc;
-            }, {});
+            }
         }
 
-        /**
-         * Enhanced menu item rendering with animations
-         */
-        function renderMenuItem(item) {
-            const itemElement = document.createElement('div');
-            itemElement.className = 'menu-item-card bg-white rounded-xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100';
-            itemElement.innerHTML = `
-                <div class="flex items-start justify-between">
-                    <div class="flex-grow">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-1">${item.name}</h3>
-                        <p class="text-sm text-gray-500 mb-2">${item.description || 'No description provided.'}</p>
-                        <p class="text-xl font-bold text-red-600">RM${item.price.toFixed(2)}</p>
+        function updateCartDisplay() {
+            if (cart.length === 0) {
+                emptyCart.style.display = 'block';
+                cartItems.innerHTML = '';
+            } else {
+                emptyCart.style.display = 'none';
+                cartItems.innerHTML = cart.map(item => `
+                    <div class="cart-item bg-gray-50 rounded-lg p-3 mb-2">
+                        <div class="flex items-center space-x-3">
+                            <img src="/picture/${item.image}" alt="${item.name}" 
+                                 class="w-12 h-12 object-cover rounded" 
+                                 onerror="this.style.display='none'">
+                            <div class="flex-1">
+                                <h5 class="font-medium text-gray-800">${item.name}</h5>
+                                <p class="text-amber-700 font-bold">RM${item.price.toFixed(2)}</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition"
+                                        onclick="updateQuantity('${item.itemId}', -1)">
+                                    <i class="fas fa-minus text-xs"></i>
+                                </button>
+                                <span class="font-bold w-8 text-center">${item.quantity}</span>
+                                <button class="w-8 h-8 bg-amber-500 text-white rounded-full flex items-center justify-center hover:bg-amber-600 transition"
+                                        onclick="updateQuantity('${item.itemId}', 1)">
+                                    <i class="fas fa-plus text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <button 
-                        onclick="addToCartWithAnimation('${item.id}', '${item.name}', ${item.price})"
-                        class="add-cart-btn ml-4 flex-shrink-0 bg-red-500 text-white p-3 rounded-full hover:bg-red-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
-                        title="Add to Cart">
-                        <i data-lucide="plus" class="w-5 h-5"></i>
+                `).join('');
+            }
+            updateCartTotals();
+            validateCheckout();
+        }
+
+        function updateCartTotals() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const total = subtotal + tipAmount;
+
+            subtotalAmount.textContent = `RM ${subtotal.toFixed(2)}`;
+            tipAmountDisplay.textContent = `RM ${tipAmount.toFixed(2)}`;
+            totalAmount.textContent = `RM ${total.toFixed(2)}`;
+        }
+
+        function validateCheckout() {
+            const isValid = cart.length > 0 && customerNameInput.value.trim().length > 0;
+            checkoutBtn.disabled = !isValid;
+        }
+
+        // Checkout function
+        async function checkout() {
+            if (!validateCheckout()) return;
+
+            const orderData = {
+                customer_name: customerNameInput.value.trim(),
+                customer_phone: '', // You can add phone input if needed
+                table_number: tableNumberInput.value.trim(),
+                special_instructions: specialInstructionsInput.value.trim(),
+                order_details: cart,
+                sub_total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+                tip_amount: tipAmount,
+                total_amount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) + tipAmount
+            };
+
+            checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Processing...</span>';
+            checkoutBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Order placed successfully!', 'success');
+                    // Redirect to payment page
+                    setTimeout(() => {
+                        window.location.href = `/payment/${result.order_id}`;
+                    }, 1000);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('Checkout error:', error);
+                showNotification('Failed to place order: ' + error.message, 'error');
+                checkoutBtn.innerHTML = '<i class="fas fa-qrcode"></i><span>Proceed to QR Payment</span>';
+                checkoutBtn.disabled = false;
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            
+            const bgColor = type === 'success' ? 'bg-green-500' : 
+                           type === 'error' ? 'bg-red-500' : 
+                           'bg-blue-500';
+            
+            notification.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg max-w-sm notification`;
+            notification.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas ${type === 'success' ? 'fa-check' : type === 'error' ? 'fa-exclamation-triangle' : 'fa-info'}"></i>
+                        <span>${message}</span>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4">
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
             `;
             
-            // Re-render Lucide icons
-            lucide.createIcons(); 
-            return itemElement;
-        }
-
-        /**
-         * Renders the entire menu based on grouped data.
-         * @param {Object} groupedMenu 
-         */
-        function renderMenu(groupedMenu) {
-            menuContainer.innerHTML = '';
+            container.appendChild(notification);
             
-            const categoriesToShow = Object.keys(groupedMenu);
-            if (categoriesToShow.length === 0 && activeCategory !== 'All') {
-                menuContainer.innerHTML = `<p class="text-center py-12 text-gray-500 text-lg">
-                                               No items found in the category: <span class="font-semibold text-red-600">${activeCategory}</span>.
-                                           </p>`;
-            }
-
-            for (const category in groupedMenu) {
-                const categorySection = document.createElement('section');
-                categorySection.className = 'mb-10';
-                categorySection.innerHTML = `
-                    <h2 class="text-3xl font-bold text-gray-700 mb-4 border-l-4 border-red-500 pl-3">${category}</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Items go here -->
-                    </div>
-                `;
-                
-                const itemsGrid = categorySection.querySelector('.grid');
-                groupedMenu[category].forEach(item => {
-                    itemsGrid.appendChild(renderMenuItem(item));
-                });
-
-                menuContainer.appendChild(categorySection);
-            }
-        }
-
-        // --- Cart Management Functions ---
-        
-        /**
-         * Enhanced add to cart with animation
-         */
-        function addToCartWithAnimation(id, name, price) {
-            // Add to cart
-            if (cart[id]) {
-                cart[id].quantity += 1;
-            } else {
-                cart[id] = { id, name, price, quantity: 1 };
-            }
-            
-            // Animation feedback
-            const cartBtn = document.querySelector('[data-lucide="shopping-cart"]').closest('button');
-            if (cartBtn) {
-                cartBtn.classList.add('cart-pulse');
-                setTimeout(() => cartBtn.classList.remove('cart-pulse'), 500);
-            }
-            
-            // Show quick notification
-            showQuickNotification(`Added ${name} to cart!`);
-            
-            updateCart();
-        }
-
-        /**
-         * Removes an item completely from the cart.
-         * @param {string} id - Item ID
-         */
-        function removeFromCart(id) {
-            delete cart[id];
-            updateCart();
-        }
-
-        /**
-         * Updates the quantity of an item in the cart.
-         * @param {string} id - Item ID
-         * @param {number} delta - +1 or -1
-         */
-        function updateCartQuantity(id, delta) {
-            if (cart[id]) {
-                cart[id].quantity += delta;
-                if (cart[id].quantity <= 0) {
-                    removeFromCart(id);
-                } else {
-                    updateCart();
-                }
-            }
-        }
-
-        /**
-         * Enhanced quantity update with animation
-         */
-        function updateCartQuantityWithAnimation(id, delta) {
-            const itemElement = document.querySelector(`button[onclick*="${id}"]`)?.closest('.cart-item');
-            
-            if (itemElement) {
-                itemElement.style.transform = 'scale(0.98)';
-                setTimeout(() => {
-                    itemElement.style.transform = 'scale(1)';
-                }, 150);
-            }
-            
-            updateCartQuantity(id, delta);
-        }
-
-        /**
-         * Enhanced cart rendering
-         */
-        function updateCart() {
-            cartContainer.innerHTML = '';
-            subTotalAmount = 0;
-            const cartItemKeys = Object.keys(cart);
-
-            if (cartItemKeys.length === 0) {
-                emptyCartMessage.classList.remove('hidden');
-                checkoutBtn.disabled = true;
-            } else {
-                emptyCartMessage.classList.add('hidden');
-            }
-
-            cartItemKeys.forEach(id => {
-                const item = cart[id];
-                const itemTotal = item.price * item.quantity;
-                subTotalAmount += itemTotal;
-
-                const cartItemElement = renderCartItem(id, item);
-                cartContainer.appendChild(cartItemElement);
-            });
-
-            // Recalculate and update the totals
-            updateTotals();
-            lucide.createIcons(); // Re-render Lucide icons
-        }
-
-        /**
-         * Enhanced cart item rendering
-         */
-        function renderCartItem(id, item) {
-            const cartItemElement = document.createElement('div');
-            cartItemElement.className = 'cart-item bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:border-red-100 transition-all duration-200';
-            cartItemElement.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex-grow">
-                        <h4 class="font-medium text-gray-800">${item.name}</h4>
-                        <p class="text-sm text-gray-500">RM${item.price.toFixed(2)} x ${item.quantity}</p>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="updateCartQuantityWithAnimation('${id}', -1)" 
-                                class="w-10 h-10 bg-gray-100 text-gray-700 rounded-full flex items-center justify-center hover:bg-gray-200 transition-all duration-200 active:scale-95 btn-mobile">
-                            <i data-lucide="minus" class="w-4 h-4"></i>
-                        </button>
-                        <span class="font-bold w-8 text-center text-lg">${item.quantity}</span>
-                        <button onclick="updateCartQuantityWithAnimation('${id}', 1)" 
-                                class="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center hover:bg-green-600 transition-all duration-200 active:scale-95 btn-mobile">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            return cartItemElement;
-        }
-
-        // --- Tipping and Total Calculation Functions ---
-
-        /**
-         * Applies a tip based on a percentage of the subtotal.
-         * @param {number} percentage - The percentage (e.g., 0.15 for 15%).
-         */
-        function applyTipPercentage(percentage) {
-            tipAmount = subTotalAmount * percentage;
-            // Round to 2 decimal places
-            tipAmount = parseFloat(tipAmount.toFixed(2));
-            customTipInput.value = ''; // Clear custom input
-            
-            updateTotals();
-            updateTipButtonState(percentage);
-        }
-
-        /**
-         * Applies a custom tip amount entered by the user.
-         */
-        function applyCustomTip() {
-            const customValue = parseFloat(customTipInput.value);
-            if (!isNaN(customValue) && customValue >= 0) {
-                tipAmount = parseFloat(customValue.toFixed(2));
-            } else {
-                // If input is cleared or invalid, assume zero tip for now (user can clear tip separately)
-                tipAmount = 0; 
-            }
-
-            // If the user enters a custom tip, we need to clear percentage button states
-            updateTipButtonState(null);
-            updateTotals();
-        }
-
-        /**
-         * Clears the current tip amount.
-         */
-        function clearTip() {
-            tipAmount = 0;
-            customTipInput.value = '';
-            updateTotals();
-            updateTipButtonState(null);
-        }
-
-        /**
-         * Updates the visual state of the tip buttons.
-         * @param {number | null} activePercent - The percentage that is currently active, or null to clear.
-         */
-        function updateTipButtonState(activePercent) {
-            tipButtons.forEach(btn => {
-                const percent = parseFloat(btn.getAttribute('data-percent'));
-                if (btn.id === 'clear-tip-btn') {
-                    btn.classList.toggle('hidden', tipAmount === 0);
-                    return;
-                }
-
-                // Check if this button's percentage matches the active one
-                if (percent === activePercent) {
-                    btn.classList.add('bg-red-600', 'text-white');
-                    btn.classList.remove('bg-gray-200', 'text-gray-700');
-                } else {
-                    btn.classList.remove('bg-red-600', 'text-white');
-                    btn.classList.add('bg-gray-200', 'text-gray-700');
-                }
-            });
-
-            // If a custom amount is entered, we highlight the clear button and unhighlight percentages
-            if (customTipInput.value.trim() !== '' && tipAmount > 0) {
-                 clearTipBtn.classList.remove('hidden');
-            } else if (tipAmount === 0) {
-                 clearTipBtn.classList.add('hidden');
-            }
-
-        }
-        
-        /**
-         * Recalculates the final total and updates the display.
-         */
-        function updateTotals() {
-            finalTotalAmount = subTotalAmount + tipAmount;
-
-            tipDisplay.textContent = `RM${tipAmount.toFixed(2)}`;
-            cartTotalDisplay.textContent = `RM${finalTotalAmount.toFixed(2)}`;
-            
-            // Re-enable/disable checkout button based on cart items
-            checkoutBtn.disabled = Object.keys(cart).length === 0;
-
-            // Re-render clear tip button visibility
-            updateTipButtonState(null);
-        }
-
-        // --- Quick Notification System ---
-        
-        /**
-         * Quick notification system
-         */
-        function showQuickNotification(message) {
-            const notification = document.createElement('div');
-            notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 z-50';
-            notification.style.transform = 'translateX(100%)';
-            notification.innerHTML = `
-                <div class="flex items-center">
-                    <i data-lucide="check" class="w-5 h-5 mr-2"></i>
-                    <span>${message}</span>
-                </div>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Animate in
-            setTimeout(() => notification.style.transform = 'translateX(0)', 10);
-            
-            // Animate out and remove
             setTimeout(() => {
-                notification.style.transform = 'translateX(100%)';
+                notification.classList.add('hiding');
                 setTimeout(() => notification.remove(), 300);
-            }, 2000);
-            
-            lucide.createIcons();
+            }, 3000);
         }
 
-        // --- Checkout Logic ---
-        
-        /**
-         * Submits the order to Firestore.
-         */
-        async function submitOrder() {
-            const customerName = customerNameInput.value.trim();
-            
-            if (!customerName) {
-                showModal('Error', 'Please enter your name before placing the order.', 'text-yellow-600');
-                return;
-            }
-            if (Object.keys(cart).length === 0) {
-                 showModal('Error', 'Your cart is empty! Please add items to order.', 'text-yellow-600');
-                return;
-            }
+        // Attach checkout to button
+        checkoutBtn.addEventListener('click', checkout);
 
-            // Check if Firebase is ready before proceeding with database operations
-            // Try Firestore first; if not available, fallback to posting to server /api/orders
-            const tryServerFallback = async (orderPayload) => {
-                // Prepare body expected by the server endpoint
-                const serverBody = {
-                    customer_name: orderPayload.customer_name,
-                    total_amount: orderPayload.total_amount,
-                    order_details: orderPayload.order_details
-                };
-
-                try {
-                    const resp = await fetch('/api/orders', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(serverBody)
-                    });
-
-                    if (!resp.ok) {
-                        const err = await resp.json().catch(() => ({}));
-                        throw new Error(err.error || `Server returned ${resp.status}`);
-                    }
-
-                    const data = await resp.json();
-                    return { success: true, source: 'server', data };
-                } catch (err) {
-                    return { success: false, error: err };
-                }
-            };
-
-            // ALWAYS use local server (skip Firebase completely)
-            if (true) {
-                // If Firebase is not ready, try sending to local server API as a fallback.
-                const orderDetails = Object.values(cart).map(item => ({
-                    item_id: item.id,
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price
-                }));
-
-                const orderPayload = {
-                    customer_name: customerName,
-                    sub_total: subTotalAmount,
-                    tip_amount: tipAmount,
-                    total_amount: finalTotalAmount,
-                    order_details: orderDetails
-                };
-
-                // Set loading state
-                checkoutBtn.disabled = true;
-                checkoutText.classList.add('hidden');
-                checkoutLoading.classList.remove('hidden');
-
-                const serverResult = await tryServerFallback(orderPayload);
-                // Remove loading state
-                checkoutBtn.disabled = false;
-                checkoutText.classList.remove('hidden');
-                checkoutLoading.classList.add('hidden');
-
-                if (serverResult.success) {
-                    const id = serverResult.data && (serverResult.data.order_id || serverResult.data.id);
-                    
-                    // REDIRECT TO PAYMENT PAGE INSTEAD OF SHOWING MODAL
-                    window.location.href = `/payment/${id}`;
-                    
-                    // Don't reset order here - let payment page handle it
-                    // resetOrder();
-                    
-                } else {
-                    console.error('Server fallback failed:', serverResult.error);
-                    // Save failed order locally for retrieval
-                    saveFailedOrderLocally(orderPayload, serverResult.error);
-                    showModal('Order Failed', `Could not save order. Saved a copy locally for retrieval. Error: ${serverResult.error && serverResult.error.message ? serverResult.error.message : 'No connection to Firestore or server.'}`, 'text-red-600');
-                    toggleDownloadButton(true);
-                }
-
-                return;
-            }
-
-            // Prepare order details for Firestore
-            const orderDetails = Object.values(cart).map(item => ({
-                item_id: item.id,
-                name: item.name, 
-                quantity: item.quantity,
-                price: item.price
-            }));
-
-            const orderPayload = {
-                customer_name: customerName,
-                sub_total: subTotalAmount,     
-                tip_amount: tipAmount,         
-                total_amount: finalTotalAmount, 
-                order_details: orderDetails
-            };
-
-            // Set loading state
-            checkoutBtn.disabled = true;
-            checkoutText.classList.add('hidden');
-            checkoutLoading.classList.remove('hidden');
-
-            try {
-                // The global function handles waiting for auth to complete
-                const response = await window.submitOrderToFirestore(orderPayload);
-                
-                // REDIRECT TO PAYMENT PAGE FOR FIREBASE ORDERS TOO
-                window.location.href = `/payment/${response.order_id}`;
-                
-                // Don't reset order here
-                // resetOrder();
-
-            } catch (error) {
-                console.error("Firestore Order Submission Failed:", error);
-                // If Firestore write fails, try server fallback before giving up
-                console.warn('Attempting server fallback after Firestore failure...');
-
-                try {
-                    const serverAttempt = await fetch('/api/orders', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            customer_name: orderPayload.customer_name,
-                            total_amount: orderPayload.total_amount,
-                            order_details: orderPayload.order_details
-                        })
-                    });
-
-                    if (serverAttempt.ok) {
-                        const serverData = await serverAttempt.json();
-                        const id = serverData && (serverData.order_id || serverData.id);
-                        
-                        // REDIRECT TO PAYMENT PAGE
-                        window.location.href = `/payment/${id}`;
-                        
-                    } else {
-                        const err = await serverAttempt.json().catch(() => ({}));
-                        showModal('Order Failed', `Could not save order. Firestore error: ${error.message}. Server fallback failed: ${err.error || serverAttempt.status}.`, 'text-red-600');
-                    }
-                } catch (serverErr) {
-                    console.error('Server fallback also failed:', serverErr);
-                    // Save failed order locally
-                    saveFailedOrderLocally(orderPayload, serverErr);
-                    toggleDownloadButton(true);
-                    showModal('Order Failed', `Could not save order to database. A local copy was saved for retrieval. Details: ${error.message}. Server fallback failed: ${serverErr.message}`, 'text-red-600');
-                }
-            } finally {
-                // Remove loading state
-                checkoutBtn.disabled = false;
-                checkoutText.classList.remove('hidden');
-                checkoutLoading.classList.add('hidden');
-            }
-        }
-
-        /**
-         * Clears the cart and customer name after a successful order.
-         */
-        function resetOrder() {
-            cart = {};
-            subTotalAmount = 0;
-            tipAmount = 0;
-            finalTotalAmount = 0;
-            customerNameInput.value = '';
-            customTipInput.value = '';
-            updateCart();
-            updateTipButtonState(null); // Reset tip buttons
-        }
-        
-        // --- Modal/UI Functions ---
-
-        /**
-         * Shows the custom status modal.
-         * @param {string} title - Modal title.
-         * @param {string} message - Modal message.
-         * @param {string} titleColorClass - Tailwind class for title color (e.g., 'text-red-600').
-         */
-        function showModal(title, message, titleColorClass) {
-            modalTitle.textContent = title;
-            modalTitle.className = `text-2xl font-bold mb-3 ${titleColorClass}`;
-            modalMessage.textContent = message;
-            statusModal.classList.remove('hidden');
-        }
-
-        /**
-         * Hides the custom status modal.
-         */
-        function closeModal() {
-            statusModal.classList.add('hidden');
-        }
-
-        // --- Animation Test Function ---
-        
-        function testAnimations() {
-            showQuickNotification('Animation test successful! 🎉');
-            
-            // Test cart pulse
-            const cartBtn = document.querySelector('[data-lucide="shopping-cart"]')?.closest('button');
-            if (cartBtn) {
-                cartBtn.classList.add('cart-pulse');
-                setTimeout(() => cartBtn.classList.remove('cart-pulse'), 500);
-            }
-        }
-
-        // --- Initialization (Revised to load menu immediately) ---
-
-        /**
-         * Fetches mock menu data and initializes the UI.
-         */
-        function initApp() {
-            // Mock Menu Data for immediate display and testing:
-            const mockMenuData = [
-                { id: 'item_c1', name: 'Espresso', description: 'Strong double shot of our signature blend.', price: 3.50, category: 'Coffee' },
-                { id: 'item_c2', name: 'Latte', description: 'Espresso with steamed milk and a thin layer of foam.', price: 5.00, category: 'Coffee' },
-                { id: 'item_c3', name: 'Cold Brew', description: '16-hour steeped smooth, concentrated coffee.', price: 4.50, category: 'Coffee' },
-                { id: 'item_c4', name: 'Cappuccino', description: 'Equal parts espresso, steamed milk, and milk foam.', price: 5.25, category: 'Coffee' },
-                { id: 'item_p1', name: 'Chocolate Croissant', description: 'Flaky pastry filled with dark chocolate.', price: 3.80, category: 'Pastries' },
-                { id: 'item_p2', name: 'Blueberry Muffin', description: 'A large, moist muffin with fresh blueberries.', price: 3.00, category: 'Pastries' },
-                { id: 'item_p3', name: 'Almond Biscotti', description: 'Crunchy almond biscuits, perfect for dipping.', price: 2.50, category: 'Pastries' },
-                { id: 'item_d1', name: 'Iced Lemon Tea', description: 'Refreshing black tea with a hint of lemon.', price: 4.00, category: 'Drinks' },
-                { id: 'item_d2', name: 'Sparkling Water', description: 'Pure carbonated mineral water.', price: 2.50, category: 'Drinks' },
-                { id: 'item_d3', name: 'Orange Juice', description: 'Freshly squeezed Florida oranges.', price: 3.90, category: 'Drinks' }
-            ];
-
-            menuData = mockMenuData;
-            
-            // Proceed with rendering the menu
-            renderFilters(); 
-            filterMenu(activeCategory); 
-
-            // Hide the spinner and show the menu
-            loadingSpinner.classList.add('hidden');
-            menuContainer.classList.remove('hidden');
-            
-            if (menuData.length === 0) {
-                 loadingSpinner.innerHTML = `
-                    <p class="text-red-600 font-semibold mt-4">
-                        Menu is empty. Please check the mock data or populate the 'menu' collection in Firestore.
-                    </p>
-                `;
-            }
-
-             // Attach listeners
-            checkoutBtn.addEventListener('click', submitOrder);
-        };
-
-
-        // Run the initialization function immediately on DOM content loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            initApp(); // Load the menu immediately
-            lucide.createIcons(); // Initialize all static icons
-        });
-
-        // Check server status to see if a server-side DB is available
-        (async function checkServerStatus(){
-            try {
-                const resp = await fetch('/api/status');
-                if (!resp.ok) return;
-                const data = await resp.json();
-                // If server reports sqlite or firestore, hide the firebase warning
-                if (data.db === 'sqlite' || data.db === 'firestore') {
-                    if (window.firebaseErrorElement) window.firebaseErrorElement.classList.add('hidden');
-                }
-            } catch (e) {
-                // ignore
-            }
-        })();
-
-        // --- Local fallback helpers ---
-        function saveFailedOrderLocally(orderPayload, err) {
-            try {
-                const payload = {
-                    order: orderPayload,
-                    error: (err && err.message) ? err.message : String(err),
-                    saved_at: new Date().toISOString()
-                };
-                localStorage.setItem('last_failed_order', JSON.stringify(payload));
-            } catch (e) {
-                console.error('Failed to save order locally:', e);
-            }
-        }
-
-        function downloadLastOrder() {
-            const saved = localStorage.getItem('last_failed_order');
-            if (!saved) { alert('No saved order available.'); return; }
-            const blob = new Blob([saved], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `order-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        }
-
-        function toggleDownloadButton(show) {
-            const btn = document.getElementById('download-order-btn');
-            if (!btn) return;
-            btn.style.display = show ? 'inline-block' : 'none';
-        }
-
-        // Show download button if there's a saved failed order
-        try { if (localStorage.getItem('last_failed_order')) toggleDownloadButton(true); } catch(e){}
-
-    </script>
-
-    <!-- Hide dev tools for normal users - only show when ?dev=true -->
-    <script>
-        (function() {
-            // Check if URL has ?dev=true parameter
-            const urlParams = new URLSearchParams(window.location.search);
-            const isDevMode = urlParams.get('dev') === 'true';
-            
-            // Find the dev toolbar
-            const devToolbar = document.getElementById('dev-toolbar');
-            
-            if (devToolbar && !isDevMode) {
-                devToolbar.style.display = 'none';
-            }
-        })();
+        // Make functions global for onclick handlers
+        window.addToCart = addToCart;
+        window.removeFromCart = removeFromCart;
+        window.updateQuantity = updateQuantity;
+        window.checkout = checkout;
+        window.showNotification = showNotification;
     </script>
 </body>
 </html>
