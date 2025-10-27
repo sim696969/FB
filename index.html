@@ -477,6 +477,7 @@
         function validateCheckout() {
             const isValid = cart.length > 0 && customerNameInput.value.trim().length > 0;
             checkoutBtn.disabled = !isValid;
+            return isValid;
         }
 
         // Checkout function
