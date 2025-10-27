@@ -7,6 +7,47 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Simple in-memory rate limiter for noisy endpoints (per-IP)
+const rateLimitMap = new Map();
+function tooManyRequests(ip, windowMs = 3000) {
+    const last = rateLimitMap.get(ip) || 0;
+    const now = Date.now();
+    if (now - last < windowMs) return true;
+    rateLimitMap.set(ip, now);
+    return false;
+}
+
+// Simple in-memory cache for /api/payment-proofs to reduce DB load
+let paymentProofsCache = {
+    ts: 0,
+    ttl: 15000, // ms (15s) - increased to reduce repeated DB reads during heavy polling
+    data: null
+};
+
+// per-IP counters to detect abusive pollers over a minute window
+const ipCounters = new Map();
+function incrementIpCounter(ip) {
+    const now = Date.now();
+    const entry = ipCounters.get(ip) || { count: 0, ts: now };
+    // reset window after 60s
+    if (now - entry.ts > 60000) {
+        entry.count = 1;
+        entry.ts = now;
+    } else {
+        entry.count += 1;
+    }
+    ipCounters.set(ip, entry);
+    return entry.count;
+}
+
+// periodic cleanup of ipCounters to avoid memory growth
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, e] of ipCounters.entries()) {
+        if (now - e.ts > 5 * 60 * 1000) ipCounters.delete(ip);
+    }
+}, 5 * 60 * 1000);
+
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/coffeeshop';
 
@@ -713,37 +754,60 @@ app.get('/api/payment-proofs', async (req, res) => {
     try {
         let proofs = [];
         
-        if (isMongoConnected()) {
-            proofs = await PaymentProof.find().sort({ submittedAt: -1 });
-            console.log(`📸 Found ${proofs.length} payment proofs in MongoDB`);
-        } else {
-            proofs = fileProofs.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-            console.log(`📸 Found ${proofs.length} payment proofs in file`);
-        }
-        
-        // Ensure all proofs have proper image URLs
-        const proofsWithImages = proofs.map(proof => {
-            let screenshotUrl = proof.screenshot;
-            
-            // If it's a base64 image, we need to handle it differently
-            if (proof.screenshot && proof.screenshot.startsWith('data:image/')) {
-                // For base64 images, we'll use them as-is (they might be large though)
-                screenshotUrl = proof.screenshot;
-            } else if (proof.screenshot && !proof.screenshot.startsWith('/uploads/') && !proof.screenshot.startsWith('http')) {
-                // If it's just a filename, make it a proper path
-                screenshotUrl = `/uploads/${proof.screenshot}`;
+            // identify caller for diagnostics
+            const callerIp = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
+            const callerUA = req.get('user-agent') || '';
+            console.log(`📡 /api/payment-proofs called by ${callerIp} - ${callerUA}`);
+
+            // basic per-IP rate limiting to protect DB from aggressive polling
+            if (tooManyRequests(callerIp, 3000)) {
+                console.warn(`⚠️ Rate limit: too many requests from ${callerIp}`);
+                return res.status(429).json({ success: false, error: 'Too many requests - slow down' });
             }
+
+            // increment per-minute counter and enforce stricter limit if abused
+            const count = incrementIpCounter(callerIp);
+            if (count > 20) {
+                console.warn(`🚫 Abusive poller detected ${callerIp} (${count} calls in 60s)`);
+                return res.status(429).json({ success: false, error: 'Too many requests - rate limited' });
+            }
+
+            // Serve from cache when fresh
+            const now = Date.now();
+            if (paymentProofsCache.data && (now - paymentProofsCache.ts) < paymentProofsCache.ttl) {
+                console.log(`🗄️ Serving /api/payment-proofs from cache (age ${now - paymentProofsCache.ts}ms)`);
+                return res.json({ success: true, data: paymentProofsCache.data });
+            }
+
+            if (isMongoConnected()) {
+                proofs = await PaymentProof.find().sort({ submittedAt: -1 });
+                console.log(`📸 Found ${proofs.length} payment proofs in MongoDB`);
+            } else {
+                proofs = fileProofs.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+                console.log(`📸 Found ${proofs.length} payment proofs in file`);
+            }
+
+            // Ensure all proofs have proper image URLs
+            const proofsWithImages = proofs.map(proof => {
+                let screenshotUrl = proof.screenshot;
             
-            return {
-                ...proof.toObject ? proof.toObject() : proof,
-                screenshot: screenshotUrl
-            };
-        });
-        
-        res.json({
-            success: true,
-            data: proofsWithImages
-        });
+                if (proof.screenshot && proof.screenshot.startsWith('data:image/')) {
+                    screenshotUrl = proof.screenshot;
+                } else if (proof.screenshot && !proof.screenshot.startsWith('/uploads/') && !proof.screenshot.startsWith('http')) {
+                    screenshotUrl = `/uploads/${proof.screenshot}`;
+                }
+
+                return {
+                    ...proof.toObject ? proof.toObject() : proof,
+                    screenshot: screenshotUrl
+                };
+            });
+
+            // Update cache and return
+            paymentProofsCache.data = proofsWithImages;
+            paymentProofsCache.ts = Date.now();
+
+            res.json({ success: true, data: proofsWithImages });
     } catch (error) {
         console.error('Error fetching payment proofs:', error);
         res.status(500).json({ 
