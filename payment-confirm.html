@@ -211,7 +211,7 @@
         </div>
     </div>
 
-    <!-- Success Modal -->
+    <!-- Success Modal - REMOVED TRACK ORDER BUTTON -->
     <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl p-8 w-full max-w-md text-center transform transition-all duration-300 scale-95">
             <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -226,10 +226,7 @@
                         class="w-full bg-amber-600 text-white py-4 rounded-xl font-bold hover:bg-amber-700 transition">
                     Back to Menu
                 </button>
-                <button onclick="viewOrderStatus()" 
-                        class="w-full bg-gray-500 text-white py-4 rounded-xl font-bold hover:bg-gray-600 transition">
-                    Track My Order
-                </button>
+                <!-- REMOVED TRACK ORDER BUTTON -->
             </div>
         </div>
     </div>
@@ -480,9 +477,7 @@
             window.location.href = '/';
         }
 
-        function viewOrderStatus() {
-            window.location.href = `/admin/orders`;
-        }
+        // REMOVED viewOrderStatus function
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {

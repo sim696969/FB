@@ -1,4 +1,4 @@
-// server.js - COMPLETE FIXED VERSION
+// server.js - FIXED PAYMENT PROOF DISPLAY
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
@@ -708,20 +708,41 @@ app.post('/api/payment-proof', async (req, res) => {
     }
 });
 
-// Get all payment proofs
+// Get all payment proofs - FIXED TO RETURN ACTUAL DATA
 app.get('/api/payment-proofs', async (req, res) => {
     try {
         let proofs = [];
         
         if (isMongoConnected()) {
             proofs = await PaymentProof.find().sort({ submittedAt: -1 });
+            console.log(`📸 Found ${proofs.length} payment proofs in MongoDB`);
         } else {
             proofs = fileProofs.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+            console.log(`📸 Found ${proofs.length} payment proofs in file`);
         }
+        
+        // Ensure all proofs have proper image URLs
+        const proofsWithImages = proofs.map(proof => {
+            let screenshotUrl = proof.screenshot;
+            
+            // If it's a base64 image, we need to handle it differently
+            if (proof.screenshot && proof.screenshot.startsWith('data:image/')) {
+                // For base64 images, we'll use them as-is (they might be large though)
+                screenshotUrl = proof.screenshot;
+            } else if (proof.screenshot && !proof.screenshot.startsWith('/uploads/') && !proof.screenshot.startsWith('http')) {
+                // If it's just a filename, make it a proper path
+                screenshotUrl = `/uploads/${proof.screenshot}`;
+            }
+            
+            return {
+                ...proof.toObject ? proof.toObject() : proof,
+                screenshot: screenshotUrl
+            };
+        });
         
         res.json({
             success: true,
-            data: proofs
+            data: proofsWithImages
         });
     } catch (error) {
         console.error('Error fetching payment proofs:', error);
