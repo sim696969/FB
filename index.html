@@ -127,7 +127,12 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <!-- Ready time removed as requested -->
+                    <!-- Header cart button -->
+                    <button id="header-cart-btn" class="relative bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-2 rounded-lg flex items-center space-x-2">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="text-sm">Cart</span>
+                        <span id="header-cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -270,6 +275,39 @@
     <!-- Notification Container -->
     <div id="notification-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
+    <!-- Cart Modal (opened from header) -->
+    <div id="cart-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden">
+            <div class="p-4 border-b flex items-center justify-between">
+                <h3 class="text-lg font-bold">Your Cart</h3>
+                <div>
+                    <button id="close-cart-modal" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200">Close</button>
+                </div>
+            </div>
+            <div class="p-4 max-h-96 overflow-y-auto" id="modal-cart-items">
+                <!-- modal cart items rendered here -->
+            </div>
+            <div class="p-4 border-t bg-gray-50">
+                <div class="flex justify-between mb-2">
+                    <span class="text-sm text-gray-600">Subtotal</span>
+                    <span id="modal-subtotal" class="font-medium">RM 0.00</span>
+                </div>
+                <div class="flex justify-between mb-4">
+                    <span class="text-sm text-gray-600">Tip</span>
+                    <span id="modal-tip" class="font-medium">RM 0.00</span>
+                </div>
+                <div class="flex justify-between font-bold text-lg mb-4">
+                    <span>Total</span>
+                    <span id="modal-total" class="text-amber-700">RM 0.00</span>
+                </div>
+                <button id="modal-checkout-btn" class="w-full checkout-btn py-3 text-white font-bold rounded-lg flex items-center justify-center space-x-2">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Proceed to QR Payment</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global state
         let cart = [];
@@ -277,18 +315,28 @@
         let currentCategory = 'all';
         let tipAmount = 0;
 
-        // DOM Elements
-        const menuContainer = document.getElementById('menu-container');
-        const loadingState = document.getElementById('loading-state');
-        const cartItems = document.getElementById('cart-items');
-        const emptyCart = document.getElementById('empty-cart');
-        const checkoutBtn = document.getElementById('checkout-btn');
-        const customerNameInput = document.getElementById('customer-name');
-        const tableNumberInput = document.getElementById('table-number');
-        const specialInstructionsInput = document.getElementById('special-instructions');
-        const subtotalAmount = document.getElementById('subtotal-amount');
-        const tipAmountDisplay = document.getElementById('tip-amount');
-        const totalAmount = document.getElementById('total-amount');
+    // DOM Elements
+    const menuContainer = document.getElementById('menu-container');
+    const loadingState = document.getElementById('loading-state');
+    const cartItems = document.getElementById('cart-items');
+    const emptyCart = document.getElementById('empty-cart');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const customerNameInput = document.getElementById('customer-name');
+    const tableNumberInput = document.getElementById('table-number');
+    const specialInstructionsInput = document.getElementById('special-instructions');
+    const subtotalAmount = document.getElementById('subtotal-amount');
+    const tipAmountDisplay = document.getElementById('tip-amount');
+    const totalAmount = document.getElementById('total-amount');
+    // Header cart and modal elements
+    const headerCartBtn = document.getElementById('header-cart-btn');
+    const headerCartCount = document.getElementById('header-cart-count');
+    const cartModal = document.getElementById('cart-modal');
+    const closeCartModal = document.getElementById('close-cart-modal');
+    const modalCartItems = document.getElementById('modal-cart-items');
+    const modalSubtotal = document.getElementById('modal-subtotal');
+    const modalTip = document.getElementById('modal-tip');
+    const modalTotal = document.getElementById('modal-total');
+    const modalCheckoutBtn = document.getElementById('modal-checkout-btn');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -434,6 +482,7 @@
             if (cart.length === 0) {
                 emptyCart.style.display = 'block';
                 cartItems.innerHTML = '';
+                if (modalCartItems) modalCartItems.innerHTML = '<p class="text-center text-gray-500 py-6">Your cart is empty</p>';
             } else {
                 emptyCart.style.display = 'none';
                 cartItems.innerHTML = cart.map(item => `
@@ -460,9 +509,35 @@
                         </div>
                     </div>
                 `).join('');
+                // also populate modal cart
+                if (modalCartItems) {
+                    modalCartItems.innerHTML = cart.map(item => `
+                        <div class="cart-item bg-gray-50 rounded-lg p-3 mb-2 flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                ${item.image ? `<img src="/picture/${item.image}" class="w-12 h-12 object-cover rounded">` : ''}
+                                <div>
+                                    <div class="font-medium">${item.name}</div>
+                                    <div class="text-sm text-gray-500">RM${item.price.toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button class="px-2 py-1 bg-gray-200 rounded" onclick="updateQuantity('${item.itemId}', -1)">-</button>
+                                <span class="font-bold">${item.quantity}</span>
+                                <button class="px-2 py-1 bg-amber-500 text-white rounded" onclick="updateQuantity('${item.itemId}', 1)">+</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
             }
             updateCartTotals();
             validateCheckout();
+            // update header cart count
+            const totalCount = cart.reduce((s, i) => s + (i.quantity || 0), 0);
+            if (headerCartCount) headerCartCount.textContent = totalCount;
+            if (headerCartBtn) {
+                headerCartBtn.classList.remove('animate-pulse');
+                if (totalCount > 0) headerCartBtn.classList.add('animate-pulse');
+            }
         }
 
         function updateCartTotals() {
@@ -558,6 +633,31 @@
 
         // Attach checkout to button
         checkoutBtn.addEventListener('click', checkout);
+
+        // Header cart button opens modal
+        if (headerCartBtn) {
+            headerCartBtn.addEventListener('click', () => {
+                if (cartModal) cartModal.classList.remove('hidden');
+                // ensure modal reflects latest totals
+                modalSubtotal.textContent = subtotalAmount.textContent || 'RM 0.00';
+                modalTip.textContent = tipAmountDisplay.textContent || 'RM 0.00';
+                modalTotal.textContent = totalAmount.textContent || 'RM 0.00';
+            });
+        }
+
+        if (closeCartModal) {
+            closeCartModal.addEventListener('click', () => {
+                if (cartModal) cartModal.classList.add('hidden');
+            });
+        }
+
+        if (modalCheckoutBtn) {
+            modalCheckoutBtn.addEventListener('click', () => {
+                // close modal then reuse existing checkout
+                if (cartModal) cartModal.classList.add('hidden');
+                checkout();
+            });
+        }
 
         // Make functions global for onclick handlers
         window.addToCart = addToCart;
