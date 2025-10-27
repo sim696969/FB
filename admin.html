@@ -1,4 +1,90 @@
-<script>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Admin Dashboard</title>
+    <!-- Tailwind CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-p1CmXQ6m6k6e7KqfJgF8Kq3Z6v7b9Cj1q1hYv1KxYtq5aY6Q3e9e1K1JrVwQ9Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* small fade-in animation used by the script */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity:1; transform: none;} }
+        .fade-in { animation: fadeIn 0.35s ease-out; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-6">
+    <header class="mb-6">
+        <div class="flex items-center justify-between">
+            <h1 class="text-2xl font-bold">Admin Dashboard</h1>
+            <div class="flex items-center gap-4">
+                <button onclick="loadOrders()" class="bg-blue-600 px-3 py-1 rounded">Refresh Orders</button>
+                <button onclick="loadPaymentProofs()" class="bg-blue-600 px-3 py-1 rounded">Refresh Proofs</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats -->
+    <section class="grid grid-cols-4 gap-4 mb-6">
+        <div class="p-4 bg-white/5 rounded">
+            <div class="text-sm">Total Orders</div>
+            <div id="total-orders" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="p-4 bg-white/5 rounded">
+            <div class="text-sm">Today</div>
+            <div id="today-orders" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="p-4 bg-white/5 rounded">
+            <div class="text-sm">Pending Proofs</div>
+            <div id="pending-proofs" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="p-4 bg-white/5 rounded">
+            <div class="text-sm">Revenue</div>
+            <div id="revenue" class="text-2xl font-bold">RM0.00</div>
+        </div>
+    </section>
+
+    <main class="grid md:grid-cols-2 gap-6">
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold">Orders <span id="orders-badge" class="ml-2 inline-block bg-red-500 text-white text-xs px-2 py-0.5 rounded hidden">0</span></h2>
+                <div class="flex gap-2">
+                    <button onclick="markAllPreparing()" class="bg-yellow-500 px-3 py-1 rounded">Mark Preparing</button>
+                    <button onclick="markAllReady()" class="bg-green-500 px-3 py-1 rounded">Mark Ready</button>
+                </div>
+            </div>
+            <div id="orders-container" class="space-y-4"></div>
+        </section>
+
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold">Payment Proofs <span id="proofs-badge" class="ml-2 inline-block bg-red-500 text-white text-xs px-2 py-0.5 rounded hidden">0</span></h2>
+                <div>
+                    <button onclick="verifyAllProofs()" class="bg-green-500 px-3 py-1 rounded">Verify All</button>
+                </div>
+            </div>
+            <div id="payment-proofs-container" class="space-y-4"></div>
+        </section>
+    </main>
+
+    <!-- Image modal -->
+    <div id="image-modal" class="fixed inset-0 flex items-center justify-center bg-black/60 hidden z-50">
+        <div class="bg-white rounded-lg overflow-hidden w-[90%] max-w-3xl text-gray-800">
+            <div class="p-4 flex items-start gap-4">
+                <img id="modal-image" src="" class="w-48 h-48 object-cover rounded" alt="proof">
+                <div id="modal-details" class="flex-1"></div>
+            </div>
+            <div class="p-4 flex justify-end gap-2 border-t">
+                <button id="verify-modal-btn" onclick="verifyCurrentProof()" class="bg-green-500 text-white px-6 py-3 rounded-lg">Verify Payment</button>
+                <button onclick="deleteCurrentProof()" class="bg-red-500 text-white px-6 py-3 rounded-lg">Delete</button>
+                <button onclick="closeImageModal()" class="bg-gray-400 text-white px-6 py-3 rounded-lg">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keep the existing script (admin logic) -->
+    <script>
     // Global variables
     let allOrders = [];
     let allProofs = [];
@@ -710,3 +796,5 @@
         }, 100);
     });
 </script>
+</body>
+</html>
