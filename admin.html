@@ -1,908 +1,712 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Brew & Bites Café</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root {
-            --primary: #8B4513;
-            --secondary: #D2691E;
-            --accent: #F4A460;
-        }
+<script>
+    // Global variables
+    let allOrders = [];
+    let allProofs = [];
+    let currentModalProof = null;
 
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.25);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-        }
-
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .order-card {
-            transition: all 0.3s ease;
-            border-left: 4px solid;
-        }
-
-        .order-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        }
-
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .proof-card {
-            border-left: 4px solid;
-            transition: all 0.3s ease;
-        }
-
-        .proof-card:hover {
-            transform: translateX(5px);
-        }
-
-        .image-preview {
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .image-preview:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
-
-        .pulse-alert {
-            animation: pulse 2s infinite;
-        }
-
-        .loading-spinner {
-            border: 3px solid #f3f4f6;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Custom scrollbar */
-        .custom-scroll::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scroll::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-        }
-    </style>
-</head>
-<body class="gradient-bg min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
-        <header class="text-center mb-12">
-            <div class="glass-effect rounded-2xl p-8 mb-8">
-                <h1 class="text-5xl font-bold text-white mb-4">
-                    <i class="fas fa-coffee mr-4"></i>
-                    Brew & Bites Café
-                </h1>
-                <p class="text-xl text-white/80">Admin Dashboard</p>
-                <div class="flex justify-center space-x-4 mt-6">
-                    <div class="bg-white/20 rounded-lg px-4 py-2">
-                        <span class="text-white text-sm">Real-time Updates</span>
-                    </div>
-                    <div class="bg-white/20 rounded-lg px-4 py-2">
-                        <span class="text-white text-sm">Payment Verification</span>
-                    </div>
-                    <div class="bg-white/20 rounded-lg px-4 py-2">
-                        <span class="text-white text-sm">Order Management</span>
-                    </div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Quick Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="glass-effect rounded-xl p-6 text-white text-center">
-                <div class="text-3xl font-bold mb-2" id="total-orders">0</div>
-                <div class="text-white/80">Total Orders</div>
-                <i class="fas fa-shopping-cart mt-3 text-white/60"></i>
-            </div>
-            <div class="glass-effect rounded-xl p-6 text-white text-center">
-                <div class="text-3xl font-bold mb-2" id="pending-proofs">0</div>
-                <div class="text-white/80">Pending Proofs</div>
-                <i class="fas fa-clock mt-3 text-yellow-400"></i>
-            </div>
-            <div class="glass-effect rounded-xl p-6 text-white text-center">
-                <div class="text-3xl font-bold mb-2" id="today-orders">0</div>
-                <div class="text-white/80">Today's Orders</div>
-                <i class="fas fa-calendar-day mt-3 text-white/60"></i>
-            </div>
-            <div class="glass-effect rounded-xl p-6 text-white text-center">
-                <div class="text-3xl font-bold mb-2" id="revenue">RM0.00</div>
-                <div class="text-white/80">Total Revenue</div>
-                <i class="fas fa-coins mt-3 text-yellow-400"></i>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            <!-- Orders Section -->
-            <div class="glass-effect rounded-2xl p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-semibold text-white flex items-center">
-                        <i class="fas fa-list mr-3"></i>
-                        Recent Orders
-                        <span id="orders-badge" class="ml-2 bg-red-500 text-white rounded-full px-2 py-1 text-sm hidden">0</span>
-                    </h2>
-                    <div class="flex gap-2">
-                        <button onclick="loadOrders()" class="bg-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/30 transition flex items-center">
-                            <i class="fas fa-refresh mr-2"></i>
-                            Refresh
-                        </button>
-                        <button onclick="exportOrders()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition flex items-center">
-                            <i class="fas fa-download mr-2"></i>
-                            Export
-                        </button>
-                    </div>
-                </div>
-
-                <div id="orders-container" class="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scroll">
-                    <div class="text-center py-12">
-                        <div class="loading-spinner w-8 h-8 mx-auto mb-4"></div>
-                        <p class="text-white/80">Loading orders...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Payment Proofs Section -->
-            <div class="glass-effect rounded-2xl p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-semibold text-white flex items-center">
-                        <i class="fas fa-camera mr-3"></i>
-                        Payment Proofs
-                        <span id="proofs-badge" class="ml-2 bg-red-500 text-white rounded-full px-2 py-1 text-sm hidden pulse-alert">0</span>
-                    </h2>
-                    <div class="flex gap-2">
-                        <button onclick="loadPaymentProofs()" class="bg-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/30 transition flex items-center">
-                            <i class="fas fa-refresh mr-2"></i>
-                            Refresh
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="payment-proofs-container" class="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scroll">
-                    <div class="text-center py-8">
-                        <div class="loading-spinner w-8 h-8 mx-auto mb-2"></div>
-                        <p class="text-white/80">Loading payment proofs...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="glass-effect rounded-2xl p-6 mt-8">
-            <h3 class="text-xl font-semibold text-white mb-4 flex items-center">
-                <i class="fas fa-bolt mr-2"></i>
-                Quick Actions
-            </h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button onclick="markAllPreparing()" class="bg-yellow-500 text-white p-4 rounded-lg hover:bg-yellow-600 transition flex flex-col items-center">
-                    <i class="fas fa-blender text-2xl mb-2"></i>
-                    <span>Mark All Preparing</span>
-                </button>
-                <button onclick="markAllReady()" class="bg-green-500 text-white p-4 rounded-lg hover:bg-green-600 transition flex flex-col items-center">
-                    <i class="fas fa-check text-2xl mb-2"></i>
-                    <span>Mark All Ready</span>
-                </button>
-                <button onclick="verifyAllProofs()" class="bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition flex flex-col items-center">
-                    <i class="fas fa-check-double text-2xl mb-2"></i>
-                    <span>Verify All Proofs</span>
-                </button>
-                <button onclick="clearAllOrders()" class="bg-red-500 text-white p-4 rounded-lg hover:bg-red-600 transition flex flex-col items-center">
-                    <i class="fas fa-trash text-2xl mb-2"></i>
-                    <span>Clear All</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Image Preview Modal -->
-    <div id="image-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-full">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-semibold text-gray-800">Payment Proof Details</h3>
-                <button onclick="closeImageModal()" class="text-gray-500 hover:text-gray-700 text-2xl bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                    <img id="modal-image" src="" alt="Payment proof" class="w-full h-96 object-contain rounded-lg border-2 border-gray-200">
-                </div>
-                <div id="modal-details" class="space-y-4">
-                    <!-- Details will be populated here -->
-                </div>
-            </div>
-            <div class="flex gap-3 mt-6 pt-4 border-t">
-                <button onclick="verifyCurrentProof()" id="verify-modal-btn" class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition flex items-center">
-                    <i class="fas fa-check mr-2"></i>Verify Payment
-                </button>
-                <button onclick="deleteCurrentProof()" class="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition flex items-center">
-                    <i class="fas fa-trash mr-2"></i>Delete Proof
-                </button>
-                <button onclick="closeImageModal()" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition flex items-center ml-auto">
-                    <i class="fas fa-times mr-2"></i>Close
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Global variables
-        let allOrders = [];
-        let allProofs = [];
-        let currentModalProof = null;
-
-        // Load orders
-        async function loadOrders() {
-            try {
-                console.log('🔄 Loading orders...');
-                const response = await fetch('/api/orders');
-                const result = await response.json();
-                
-                if (result.success) {
-                    allOrders = result.data;
-                    console.log(`✅ Loaded ${allOrders.length} orders`);
-                    displayOrders();
-                    updateStats();
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                console.error('Error loading orders:', error);
-                showNotification('Failed to load orders', 'error');
+    // Load orders
+    async function loadOrders() {
+        try {
+            console.log('🔄 Loading orders...');
+            const response = await fetch('/api/orders');
+            const result = await response.json();
+            
+            if (result.success) {
+                allOrders = result.data;
+                console.log(`✅ Loaded ${allOrders.length} orders`);
+                displayOrders();
+                updateStats();
+            } else {
+                throw new Error(result.error);
             }
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            showNotification('Failed to load orders', 'error');
+        }
+    }
+
+    // Load payment proofs
+    async function loadPaymentProofs() {
+        try {
+            console.log('🔄 Loading payment proofs...');
+            const response = await fetch('/api/payment-proofs');
+            const result = await response.json();
+            
+            if (result.success) {
+                allProofs = result.data;
+                console.log(`✅ Loaded ${allProofs.length} payment proofs`);
+                displayPaymentProofs(allProofs);
+                updateStats();
+            } else {
+                throw new Error(result.error);
+                }
+        } catch (error) {
+            console.error('Error loading payment proofs:', error);
+            showNotification('Failed to load payment proofs', 'error');
+        }
+    }
+
+    // Load dashboard stats
+    async function loadDashboardStats() {
+        try {
+            console.log('🔄 Loading dashboard stats...');
+            const response = await fetch('/api/dashboard/stats');
+            const result = await response.json();
+            
+            if (result.success) {
+                const stats = result.data;
+                console.log('📊 Stats loaded:', stats);
+                
+                // Update stats display
+                document.getElementById('total-orders').textContent = stats.totalOrders;
+                document.getElementById('today-orders').textContent = stats.todayOrders;
+                document.getElementById('pending-proofs').textContent = allProofs.filter(p => p.status === 'pending').length;
+                document.getElementById('revenue').textContent = `RM${stats.totalRevenue.toFixed(2)}`;
+                
+                console.log(`💰 Revenue updated: RM${stats.totalRevenue.toFixed(2)}`);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            // Fallback: calculate stats manually
+            calculateManualStats();
+        }
+    }
+
+    // Manual stats calculation as fallback
+    function calculateManualStats() {
+        console.log('🔄 Calculating manual stats...');
+        const totalOrders = allOrders.length;
+        const today = new Date().toDateString();
+        const todayOrders = allOrders.filter(order => {
+            const orderDate = new Date(order.createdAt || order.timestamp).toDateString();
+            return orderDate === today;
+        });
+        
+        const totalRevenue = allOrders
+            .filter(order => order.paymentStatus === 'paid')
+            .reduce((sum, order) => sum + (order.total || 0), 0);
+        
+        const pendingProofs = allProofs.filter(p => p.status === 'pending').length;
+
+        document.getElementById('total-orders').textContent = totalOrders;
+        document.getElementById('today-orders').textContent = todayOrders.length;
+        document.getElementById('pending-proofs').textContent = pendingProofs;
+        document.getElementById('revenue').textContent = `RM${totalRevenue.toFixed(2)}`;
+        
+        console.log(`💰 Manual revenue: RM${totalRevenue.toFixed(2)}`);
+    }
+
+    function updateStats() {
+        console.log('🔄 Updating stats...');
+        const pendingOrders = allOrders.filter(o => o.status === 'received').length;
+        const pendingProofs = allProofs.filter(p => p.status === 'pending').length;
+
+        // Update badges
+        const ordersBadge = document.getElementById('orders-badge');
+        const proofsBadge = document.getElementById('proofs-badge');
+
+        if (pendingOrders > 0) {
+            ordersBadge.textContent = pendingOrders;
+            ordersBadge.classList.remove('hidden');
+        } else {
+            ordersBadge.classList.add('hidden');
         }
 
-        // Load payment proofs
-        async function loadPaymentProofs() {
-            try {
-                console.log('🔄 Loading payment proofs...');
-                const response = await fetch('/api/payment-proofs');
-                const result = await response.json();
-                
-                if (result.success) {
-                    allProofs = result.data;
-                    console.log(`✅ Loaded ${allProofs.length} payment proofs`);
-                    displayPaymentProofs(allProofs);
-                    updateStats();
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                console.error('Error loading payment proofs:', error);
-                showNotification('Failed to load payment proofs', 'error');
-            }
+        if (pendingProofs > 0) {
+            proofsBadge.textContent = pendingProofs;
+            proofsBadge.classList.remove('hidden');
+        } else {
+            proofsBadge.classList.add('hidden');
         }
 
         // Load dashboard stats
-        async function loadDashboardStats() {
-            try {
-                console.log('🔄 Loading dashboard stats...');
-                const response = await fetch('/api/dashboard/stats');
-                const result = await response.json();
-                
-                if (result.success) {
-                    const stats = result.data;
-                    console.log('📊 Stats loaded:', stats);
-                    
-                    // Update stats display
-                    document.getElementById('total-orders').textContent = stats.totalOrders;
-                    document.getElementById('today-orders').textContent = stats.todayOrders;
-                    document.getElementById('pending-proofs').textContent = allProofs.filter(p => p.status === 'pending').length;
-                    document.getElementById('revenue').textContent = `RM${stats.totalRevenue.toFixed(2)}`;
-                    
-                    console.log(`💰 Revenue updated: RM${stats.totalRevenue.toFixed(2)}`);
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                console.error('Error loading stats:', error);
-                // Fallback: calculate stats manually
-                calculateManualStats();
-            }
+        loadDashboardStats();
+    }
+
+    // Display orders
+    function displayOrders() {
+        const container = document.getElementById('orders-container');
+        
+        if (allOrders.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12 text-white/80">
+                    <i class="fas fa-clipboard-list text-6xl mb-4 opacity-50"></i>
+                    <p class="text-xl mb-2">No orders yet</p>
+                    <p class="text-sm">Waiting for customer orders...</p>
+                </div>
+            `;
+            return;
         }
 
-        // Manual stats calculation as fallback
-        function calculateManualStats() {
-            console.log('🔄 Calculating manual stats...');
-            const totalOrders = allOrders.length;
-            const today = new Date().toDateString();
-            const todayOrders = allOrders.filter(order => {
-                const orderDate = new Date(order.createdAt || order.timestamp).toDateString();
-                return orderDate === today;
-            });
-            
-            const totalRevenue = allOrders
-                .filter(order => order.paymentStatus === 'paid')
-                .reduce((sum, order) => sum + (order.total || 0), 0);
-            
-            const pendingProofs = allProofs.filter(p => p.status === 'pending').length;
-
-            document.getElementById('total-orders').textContent = totalOrders;
-            document.getElementById('today-orders').textContent = todayOrders.length;
-            document.getElementById('pending-proofs').textContent = pendingProofs;
-            document.getElementById('revenue').textContent = `RM${totalRevenue.toFixed(2)}`;
-            
-            console.log(`💰 Manual revenue: RM${totalRevenue.toFixed(2)}`);
-        }
-
-        function updateStats() {
-            console.log('🔄 Updating stats...');
-            const pendingOrders = allOrders.filter(o => o.status === 'received').length;
-            const pendingProofs = allProofs.filter(p => p.status === 'pending').length;
-
-            // Update badges
-            const ordersBadge = document.getElementById('orders-badge');
-            const proofsBadge = document.getElementById('proofs-badge');
-
-            if (pendingOrders > 0) {
-                ordersBadge.textContent = pendingOrders;
-                ordersBadge.classList.remove('hidden');
-            } else {
-                ordersBadge.classList.add('hidden');
-            }
-
-            if (pendingProofs > 0) {
-                proofsBadge.textContent = pendingProofs;
-                proofsBadge.classList.remove('hidden');
-            } else {
-                proofsBadge.classList.add('hidden');
-            }
-
-            // Load dashboard stats
-            loadDashboardStats();
-        }
-
-        // Display orders
-        function displayOrders() {
-            const container = document.getElementById('orders-container');
-            
-            if (allOrders.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-12 text-white/80">
-                        <i class="fas fa-clipboard-list text-6xl mb-4 opacity-50"></i>
-                        <p class="text-xl mb-2">No orders yet</p>
-                        <p class="text-sm">Waiting for customer orders...</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = allOrders.slice(0, 10).map(order => `
-                <div class="order-card bg-white/10 rounded-xl p-4 border-l-4 ${getOrderBorderColor(order.status)} fade-in">
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-3 mb-2">
-                                <h3 class="font-bold text-white text-lg">${order.orderId || order.id}</h3>
-                                <span class="status-badge ${getStatusBadgeColor(order.status)}">
-                                    ${order.status || 'received'}
-                                </span>
-                                <span class="status-badge ${getPaymentStatusBadgeColor(order.paymentStatus)}">
-                                    ${order.paymentStatus || 'pending'}
-                                </span>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2 text-sm text-white/80">
-                                <div class="flex items-center">
-                                    <i class="fas fa-user mr-2 w-4"></i>
-                                    <span>${order.customerName || 'Customer'}</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <i class="fas fa-clock mr-2 w-4"></i>
-                                    <span>${formatTime(order.createdAt || order.timestamp)}</span>
-                                </div>
-                                ${order.customerPhone ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-phone mr-2 w-4"></i>
-                                    <span>${order.customerPhone}</span>
-                                </div>
-                                ` : ''}
-                                ${order.tableNumber ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-table mr-2 w-4"></i>
-                                    <span>${order.tableNumber}</span>
-                                </div>
-                                ` : ''}
-                            </div>
+        container.innerHTML = allOrders.slice(0, 10).map(order => `
+            <div class="order-card bg-white/10 rounded-xl p-4 border-l-4 ${getOrderBorderColor(order.status)} fade-in">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="font-bold text-white text-lg">${order.orderId || order.id}</h3>
+                            <span class="status-badge ${getStatusBadgeColor(order.status)}">
+                                ${order.status || 'received'}
+                            </span>
+                            <span class="status-badge ${getPaymentStatusBadgeColor(order.paymentStatus)}">
+                                ${order.paymentStatus || 'pending'}
+                            </span>
                         </div>
-                        <div class="text-right">
-                            <div class="text-2xl font-bold text-green-400">RM${(order.total || 0).toFixed(2)}</div>
-                            ${order.tipAmount > 0 ? `
-                                <div class="text-sm text-white/60">Tip: RM${(order.tipAmount || 0).toFixed(2)}</div>
+                        <div class="grid grid-cols-2 gap-2 text-sm text-white/80">
+                            <div class="flex items-center">
+                                <i class="fas fa-user mr-2 w-4"></i>
+                                <span>${order.customerName || 'Customer'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-clock mr-2 w-4"></i>
+                                <span>${formatTime(order.createdAt || order.timestamp)}</span>
+                            </div>
+                            ${order.customerPhone ? `
+                            <div class="flex items-center">
+                                <i class="fas fa-phone mr-2 w-4"></i>
+                                <span>${order.customerPhone}</span>
+                            </div>
+                            ` : ''}
+                            ${order.tableNumber ? `
+                            <div class="flex items-center">
+                                <i class="fas fa-table mr-2 w-4"></i>
+                                <span>${order.tableNumber}</span>
+                            </div>
                             ` : ''}
                         </div>
                     </div>
-                    
-                    <!-- Order Items -->
-                    ${order.items && order.items.length > 0 ? `
-                    <div class="mb-3 p-3 bg-white/5 rounded-lg">
-                        <div class="text-sm text-white/90 font-medium mb-2">Items:</div>
-                        <div class="space-y-1">
-                            ${order.items.map(item => `
-                                <div class="flex justify-between text-sm text-white/70">
-                                    <span>${(item.quantity || 1)}x ${item.name || 'Item'}</span>
-                                    <span>RM${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
-                                </div>
-                            `).join('')}
+                    <div class="text-right">
+                        <div class="text-2xl font-bold text-green-400">RM${(order.total || 0).toFixed(2)}</div>
+                        ${order.tipAmount > 0 ? `
+                            <div class="text-sm text-white/60">Tip: RM${(order.tipAmount || 0).toFixed(2)}</div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <!-- Order Items -->
+                ${order.items && order.items.length > 0 ? `
+                <div class="mb-3 p-3 bg-white/5 rounded-lg">
+                    <div class="text-sm text-white/90 font-medium mb-2">Items:</div>
+                    <div class="space-y-1">
+                        ${order.items.map(item => `
+                            <div class="flex justify-between text-sm text-white/70">
+                                <span>${(item.quantity || 1)}x ${item.name || 'Item'}</span>
+                                <span>RM${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${order.specialInstructions ? `
+                <div class="mb-3 p-3 bg-amber-500/20 rounded-lg">
+                    <div class="text-sm text-amber-200 font-medium mb-1">Special Instructions:</div>
+                    <div class="text-sm text-amber-100">${order.specialInstructions}</div>
+                </div>
+                ` : ''}
+
+                <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/20">
+                    <button onclick="updateOrderStatus('${order.orderId || order.id}', 'preparing')" 
+                            class="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 transition flex items-center">
+                        <i class="fas fa-blender mr-1"></i>Preparing
+                    </button>
+                    <button onclick="updateOrderStatus('${order.orderId || order.id}', 'ready')" 
+                            class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition flex items-center">
+                        <i class="fas fa-check mr-1"></i>Ready
+                    </button>
+                    <button onclick="updateOrderStatus('${order.orderId || order.id}', 'completed')" 
+                            class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition flex items-center">
+                        <i class="fas fa-check-double mr-1"></i>Completed
+                    </button>
+                    <button onclick="updatePaymentStatus('${order.orderId || order.id}', 'paid')" 
+                            class="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600 transition flex items-center">
+                        <i class="fas fa-check-circle mr-1"></i>Paid
+                    </button>
+                    <button onclick="deleteOrder('${order.orderId || order.id}')" 
+                            class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition flex items-center ml-auto">
+                        <i class="fas fa-trash mr-1"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Display payment proofs - FIXED IMAGE DISPLAY
+    function displayPaymentProofs(proofs) {
+        const container = document.getElementById('payment-proofs-container');
+        
+        if (proofs.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-white/80">
+                    <i class="fas fa-camera text-4xl mb-3 opacity-50"></i>
+                    <p class="text-lg mb-1">No payment proofs</p>
+                    <p class="text-sm">Waiting for customer uploads...</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = proofs.map(proof => {
+            // Handle different image formats
+            let imageUrl = proof.screenshot;
+            
+            // If it's a base64 image, use it directly
+            if (proof.screenshot && proof.screenshot.startsWith('data:image/')) {
+                imageUrl = proof.screenshot;
+            } 
+            // If it's a file path, make sure it's accessible
+            else if (proof.screenshot && proof.screenshot.startsWith('/uploads/')) {
+                imageUrl = proof.screenshot;
+            }
+            // If it's just a filename, prepend the uploads path
+            else if (proof.screenshot && !proof.screenshot.startsWith('http')) {
+                imageUrl = `/uploads/${proof.screenshot}`;
+            }
+            
+            return `
+            <div class="proof-card bg-white/10 rounded-xl p-4 border-l-4 ${proof.status === 'pending' ? 'border-yellow-400' : 'border-green-400'} fade-in">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h4 class="font-bold text-white">${proof.orderId}</h4>
+                            <span class="status-badge ${proof.status === 'pending' ? 'bg-yellow-500 text-white' : 'bg-green-500 text-white'}">
+                                ${proof.status}
+                            </span>
+                        </div>
+                        <div class="text-sm text-white/80 space-y-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-user mr-2 w-4"></i>
+                                <span>${proof.customerName}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-phone mr-2 w-4"></i>
+                                <span>${proof.customerPhone}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-clock mr-2 w-4"></i>
+                                <span>${formatTime(proof.submittedAt)}</span>
+                            </div>
                         </div>
                     </div>
-                    ` : ''}
-                    
-                    ${order.specialInstructions ? `
-                    <div class="mb-3 p-3 bg-amber-500/20 rounded-lg">
-                        <div class="text-sm text-amber-200 font-medium mb-1">Special Instructions:</div>
-                        <div class="text-sm text-amber-100">${order.specialInstructions}</div>
-                    </div>
-                    ` : ''}
-
-                    <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/20">
-                        <button onclick="updateOrderStatus('${order.orderId || order.id}', 'preparing')" 
-                                class="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 transition flex items-center">
-                            <i class="fas fa-blender mr-1"></i>Preparing
-                        </button>
-                        <button onclick="updateOrderStatus('${order.orderId || order.id}', 'ready')" 
-                                class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition flex items-center">
-                            <i class="fas fa-check mr-1"></i>Ready
-                        </button>
-                        <button onclick="updateOrderStatus('${order.orderId || order.id}', 'completed')" 
+                    <div class="flex gap-2">
+                        ${proof.status === 'pending' ? `
+                            <button onclick="verifyPaymentProof('${proof.id}')" 
+                                    class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition flex items-center">
+                                <i class="fas fa-check mr-1"></i>Verify
+                            </button>
+                        ` : `
+                            <span class="text-green-400 text-sm">
+                                <i class="fas fa-check-circle mr-1"></i>Verified
+                            </span>
+                        `}
+                        <button onclick="viewProofDetails('${proof.id}')" 
                                 class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition flex items-center">
-                            <i class="fas fa-check-double mr-1"></i>Completed
+                            <i class="fas fa-eye mr-1"></i>View
                         </button>
-                        <button onclick="updatePaymentStatus('${order.orderId || order.id}', 'paid')" 
-                                class="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600 transition flex items-center">
-                            <i class="fas fa-check-circle mr-1"></i>Paid
-                        </button>
-                        <button onclick="deleteOrder('${order.orderId || order.id}')" 
-                                class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition flex items-center ml-auto">
+                        <button onclick="deletePaymentProof('${proof.id}')" 
+                                class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition flex items-center">
                             <i class="fas fa-trash mr-1"></i>
                         </button>
                     </div>
                 </div>
-            `).join('');
-        }
-
-        // Display payment proofs - FIXED IMAGE DISPLAY
-        function displayPaymentProofs(proofs) {
-            const container = document.getElementById('payment-proofs-container');
-            
-            if (proofs.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-8 text-white/80">
-                        <i class="fas fa-camera text-4xl mb-3 opacity-50"></i>
-                        <p class="text-lg mb-1">No payment proofs</p>
-                        <p class="text-sm">Waiting for customer uploads...</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            container.innerHTML = proofs.map(proof => {
-                // Handle different image formats
-                let imageUrl = proof.screenshot;
                 
-                // If it's a base64 image, use it directly
-                if (proof.screenshot && proof.screenshot.startsWith('data:image/')) {
-                    imageUrl = proof.screenshot;
-                } 
-                // If it's a file path, make sure it's accessible
-                else if (proof.screenshot && proof.screenshot.startsWith('/uploads/')) {
-                    imageUrl = proof.screenshot;
-                }
-                // If it's just a filename, prepend the uploads path
-                else if (proof.screenshot && !proof.screenshot.startsWith('http')) {
-                    imageUrl = `/uploads/${proof.screenshot}`;
-                }
-                
-                return `
-                <div class="proof-card bg-white/10 rounded-xl p-4 border-l-4 ${proof.status === 'pending' ? 'border-yellow-400' : 'border-green-400'} fade-in">
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-2">
-                                <h4 class="font-bold text-white">${proof.orderId}</h4>
-                                <span class="status-badge ${proof.status === 'pending' ? 'bg-yellow-500 text-white' : 'bg-green-500 text-white'}">
-                                    ${proof.status}
-                                </span>
+                <div class="flex gap-4 items-center">
+                    <img src="${imageUrl}" alt="Payment proof" 
+                         class="image-preview h-20 w-20 object-cover rounded-lg border-2 border-white/20 cursor-pointer"
+                         onclick="viewProofDetails('${proof.id}')"
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIwLjM1ZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                    <div class="flex-1 text-sm text-white/70">
+                        ${proof.paymentReference ? `
+                            <div class="mb-1">
+                                <strong>Reference:</strong> ${proof.paymentReference}
                             </div>
-                            <div class="text-sm text-white/80 space-y-1">
-                                <div class="flex items-center">
-                                    <i class="fas fa-user mr-2 w-4"></i>
-                                    <span>${proof.customerName}</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <i class="fas fa-phone mr-2 w-4"></i>
-                                    <span>${proof.customerPhone}</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <i class="fas fa-clock mr-2 w-4"></i>
-                                    <span>${formatTime(proof.submittedAt)}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex gap-2">
-                            ${proof.status === 'pending' ? `
-                                <button onclick="verifyPaymentProof('${proof.id}')" 
-                                        class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition flex items-center">
-                                    <i class="fas fa-check mr-1"></i>Verify
-                                </button>
-                            ` : `
-                                <span class="text-green-400 text-sm">
-                                    <i class="fas fa-check-circle mr-1"></i>Verified
-                                </span>
-                            `}
-                            <button onclick="viewProofDetails('${proof.id}')" 
-                                    class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition flex items-center">
-                                <i class="fas fa-eye mr-1"></i>View
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="flex gap-4 items-center">
-                        <img src="${imageUrl}" alt="Payment proof" 
-                             class="image-preview h-20 w-20 object-cover rounded-lg border-2 border-white/20 cursor-pointer"
-                             onclick="viewProofDetails('${proof.id}')"
-                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIwLjM1ZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
-                        <div class="flex-1 text-sm text-white/70">
-                            ${proof.paymentReference ? `
-                                <div class="mb-1">
-                                    <strong>Reference:</strong> ${proof.paymentReference}
-                                </div>
-                            ` : ''}
-                            <div class="text-xs opacity-75">
-                                Click image to view details
-                            </div>
+                        ` : ''}
+                        <div class="text-xs opacity-75">
+                            Click image to view details
                         </div>
                     </div>
                 </div>
-                `;
-            }).join('');
-        }
-
-        // View proof details in modal
-        function viewProofDetails(proofId) {
-            const proof = allProofs.find(p => p.id === proofId);
-            if (!proof) return;
-
-            currentModalProof = proof;
-
-            // Handle image URL for modal
-            let imageUrl = proof.screenshot;
-            if (proof.screenshot && proof.screenshot.startsWith('data:image/')) {
-                imageUrl = proof.screenshot;
-            } else if (proof.screenshot && proof.screenshot.startsWith('/uploads/')) {
-                imageUrl = proof.screenshot;
-            } else if (proof.screenshot && !proof.screenshot.startsWith('http')) {
-                imageUrl = `/uploads/${proof.screenshot}`;
-            }
-
-            document.getElementById('modal-image').src = imageUrl;
-            document.getElementById('modal-details').innerHTML = `
-                <div class="space-y-3">
-                    <div>
-                        <label class="font-semibold text-gray-700">Order ID:</label>
-                        <p class="text-gray-600">${proof.orderId}</p>
-                    </div>
-                    <div>
-                        <label class="font-semibold text-gray-700">Customer:</label>
-                        <p class="text-gray-600">${proof.customerName}</p>
-                    </div>
-                    <div>
-                        <label class="font-semibold text-gray-700">Phone:</label>
-                        <p class="text-gray-600">${proof.customerPhone}</p>
-                    </div>
-                    <div>
-                        <label class="font-semibold text-gray-700">Submitted:</label>
-                        <p class="text-gray-600">${new Date(proof.submittedAt).toLocaleString()}</p>
-                    </div>
-                    ${proof.paymentReference ? `
-                    <div>
-                        <label class="font-semibold text-gray-700">Reference:</label>
-                        <p class="text-gray-600">${proof.paymentReference}</p>
-                    </div>
-                    ` : ''}
-                    <div>
-                        <label class="font-semibold text-gray-700">Status:</label>
-                        <span class="status-badge ${proof.status === 'pending' ? 'bg-yellow-500 text-white' : 'bg-green-500 text-white'}">
-                            ${proof.status}
-                        </span>
-                    </div>
-                </div>
+            </div>
             `;
+        }).join('');
+    }
 
-            // Update verify button based on status
-            const verifyBtn = document.getElementById('verify-modal-btn');
-            if (proof.status === 'verified') {
-                verifyBtn.disabled = true;
-                verifyBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Already Verified';
-                verifyBtn.className = 'bg-gray-400 text-white px-6 py-3 rounded-lg cursor-not-allowed flex items-center';
-            } else {
-                verifyBtn.disabled = false;
-                verifyBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Verify Payment';
-                verifyBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition flex items-center';
-            }
-
-            document.getElementById('image-modal').classList.remove('hidden');
+    // Delete payment proof - FIXED FUNCTION
+    async function deletePaymentProof(proofId) {
+        if (!confirm('Are you sure you want to delete this payment proof? This action cannot be undone.')) {
+            return;
         }
 
-        // Verify payment proof
-        async function verifyPaymentProof(proofId) {
-            try {
-                const response = await fetch(`/api/payment-proofs/${proofId}/verify`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ keepImage: true })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showNotification(`Payment proof verified successfully`, 'success');
-                    loadPaymentProofs();
-                    loadOrders(); // Reload orders to update payment status
-                    closeImageModal();
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                showNotification('Failed to verify payment proof: ' + error.message, 'error');
-            }
-        }
-
-        function verifyCurrentProof() {
-            if (currentModalProof) {
-                verifyPaymentProof(currentModalProof.id);
-            }
-        }
-
-        function closeImageModal() {
-            document.getElementById('image-modal').classList.add('hidden');
-            currentModalProof = null;
-        }
-
-        // Order management functions (keep existing ones)
-        async function updateOrderStatus(orderId, status) {
-            try {
-                const response = await fetch(`/api/orders/${orderId}/status`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showNotification(`Order ${orderId} status updated to ${status}`, 'success');
-                    loadOrders();
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                showNotification('Failed to update order status: ' + error.message, 'error');
-            }
-        }
-
-        async function updatePaymentStatus(orderId, paymentStatus) {
-            try {
-                const response = await fetch(`/api/orders/${orderId}/payment`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ paymentStatus, paymentMethod: 'manual' })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showNotification(`Order ${orderId} payment status updated`, 'success');
-                    loadOrders();
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                showNotification('Failed to update payment status: ' + error.message, 'error');
-            }
-        }
-
-        async function deleteOrder(orderId) {
-            if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
-                try {
-                    const response = await fetch(`/api/orders/${orderId}`, {
-                        method: 'DELETE'
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        showNotification(`Order ${orderId} deleted`, 'success');
-                        loadOrders();
-                    } else {
-                        throw new Error(result.error);
-                    }
-                } catch (error) {
-                    showNotification('Failed to delete order: ' + error.message, 'error');
-                }
-            }
-        }
-
-        async function clearAllOrders() {
-            if (confirm('Are you sure you want to clear ALL orders? This action cannot be undone.')) {
-                try {
-                    const response = await fetch('/api/orders', {
-                        method: 'DELETE'
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        showNotification(`Cleared ${result.message}`, 'success');
-                        loadOrders();
-                    } else {
-                        throw new Error(result.error);
-                    }
-                } catch (error) {
-                    showNotification('Failed to clear orders: ' + error.message, 'error');
-                }
-            }
-        }
-
-        // Quick actions
-        async function markAllPreparing() {
-            const receivedOrders = allOrders.filter(o => o.status === 'received');
-            for (const order of receivedOrders) {
-                await updateOrderStatus(order.orderId || order.id, 'preparing');
-            }
-            showNotification(`Marked ${receivedOrders.length} orders as preparing`, 'success');
-        }
-
-        async function markAllReady() {
-            const preparingOrders = allOrders.filter(o => o.status === 'preparing');
-            for (const order of preparingOrders) {
-                await updateOrderStatus(order.orderId || order.id, 'ready');
-            }
-            showNotification(`Marked ${preparingOrders.length} orders as ready`, 'success');
-        }
-
-        async function verifyAllProofs() {
-            const pendingProofs = allProofs.filter(p => p.status === 'pending');
-            for (const proof of pendingProofs) {
-                await verifyPaymentProof(proof.id);
-            }
-            showNotification(`Verified ${pendingProofs.length} payment proofs`, 'success');
-        }
-
-        // Export orders
-        async function exportOrders() {
-            try {
-                const response = await fetch('/api/orders/export');
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `orders-export-${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
-                showNotification('Orders exported successfully', 'success');
-            } catch (error) {
-                showNotification('Failed to export orders', 'error');
-            }
-        }
-
-        // Utility functions (keep existing ones)
-        function getOrderBorderColor(status) {
-            const colors = {
-                'received': 'border-gray-400',
-                'preparing': 'border-yellow-400',
-                'ready': 'border-green-400',
-                'completed': 'border-blue-400',
-                'cancelled': 'border-red-400'
-            };
-            return colors[status] || 'border-gray-400';
-        }
-
-        function getStatusBadgeColor(status) {
-            const colors = {
-                'received': 'bg-gray-500 text-white',
-                'preparing': 'bg-yellow-500 text-white',
-                'ready': 'bg-green-500 text-white',
-                'completed': 'bg-blue-500 text-white',
-                'cancelled': 'bg-red-500 text-white'
-            };
-            return colors[status] || 'bg-gray-500 text-white';
-        }
-
-        function getPaymentStatusBadgeColor(paymentStatus) {
-            const colors = {
-                'pending': 'bg-yellow-500 text-white',
-                'paid': 'bg-green-500 text-white',
-                'pending_verification': 'bg-orange-500 text-white',
-                'failed': 'bg-red-500 text-white',
-                'refunded': 'bg-purple-500 text-white'
-            };
-            return colors[paymentStatus] || 'bg-gray-500 text-white';
-        }
-
-        function formatTime(timestamp) {
-            return new Date(timestamp).toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: true 
+        try {
+            console.log(`🗑️ Deleting payment proof: ${proofId}`);
+            
+            // Try the correct endpoint
+            const response = await fetch(`/api/payment-proofs/${proofId}`, {
+                method: 'DELETE'
             });
+
+            console.log('📥 Delete response status:', response.status);
+
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const textResponse = await response.text();
+                console.error('❌ Non-JSON response from delete:', textResponse.substring(0, 200));
+                throw new Error('Server returned HTML instead of JSON. Check server routes.');
+            }
+
+            const result = await response.json();
+            console.log('📄 Delete result:', result);
+
+            if (result.success) {
+                showNotification('Payment proof deleted successfully', 'success');
+                // Remove from local array and reload
+                allProofs = allProofs.filter(p => p.id !== proofId);
+                displayPaymentProofs(allProofs);
+                updateStats();
+                
+                // Also close modal if it's open
+                if (currentModalProof && currentModalProof.id === proofId) {
+                    closeImageModal();
+                }
+            } else {
+                throw new Error(result.error || 'Unknown error from server');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting payment proof:', error);
+            
+            let errorMessage = 'Failed to delete payment proof. ';
+            if (error.message.includes('HTML instead of JSON')) {
+                errorMessage += 'Server configuration error. Please contact support.';
+            } else if (error.message.includes('Failed to fetch')) {
+                errorMessage += 'Network error. Please check your connection.';
+            } else {
+                errorMessage += error.message;
+            }
+            
+            showNotification(errorMessage, 'error');
+        }
+    }
+
+    // Delete current proof from modal
+    async function deleteCurrentProof() {
+        if (currentModalProof) {
+            await deletePaymentProof(currentModalProof.id);
+        }
+    }
+
+    // View proof details in modal
+    function viewProofDetails(proofId) {
+        const proof = allProofs.find(p => p.id === proofId);
+        if (!proof) return;
+
+        currentModalProof = proof;
+
+        // Handle image URL for modal
+        let imageUrl = proof.screenshot;
+        if (proof.screenshot && proof.screenshot.startsWith('data:image/')) {
+            imageUrl = proof.screenshot;
+        } else if (proof.screenshot && proof.screenshot.startsWith('/uploads/')) {
+            imageUrl = proof.screenshot;
+        } else if (proof.screenshot && !proof.screenshot.startsWith('http')) {
+            imageUrl = `/uploads/${proof.screenshot}`;
         }
 
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-green-500' : 
-                           type === 'error' ? 'bg-red-500' : 
-                           type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500';
-            
-            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-2xl z-50 transform transition-all duration-300 fade-in`;
-            notification.innerHTML = `
-                <div class="flex items-center">
-                    <i class="fas ${type === 'success' ? 'fa-check' : type === 'error' ? 'fa-exclamation-triangle' : 'fa-info-circle'} mr-3"></i>
-                    <span class="font-semibold">${message}</span>
+        document.getElementById('modal-image').src = imageUrl;
+        document.getElementById('modal-details').innerHTML = `
+            <div class="space-y-3">
+                <div>
+                    <label class="font-semibold text-gray-700">Order ID:</label>
+                    <p class="text-gray-600">${proof.orderId}</p>
                 </div>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.transform = 'translateX(100%)';
-                setTimeout(() => notification.remove(), 300);
-            }, 4000);
+                <div>
+                    <label class="font-semibold text-gray-700">Customer:</label>
+                    <p class="text-gray-600">${proof.customerName}</p>
+                </div>
+                <div>
+                    <label class="font-semibold text-gray-700">Phone:</label>
+                    <p class="text-gray-600">${proof.customerPhone}</p>
+                </div>
+                <div>
+                    <label class="font-semibold text-gray-700">Submitted:</label>
+                    <p class="text-gray-600">${new Date(proof.submittedAt).toLocaleString()}</p>
+                </div>
+                ${proof.paymentReference ? `
+                <div>
+                    <label class="font-semibold text-gray-700">Reference:</label>
+                    <p class="text-gray-600">${proof.paymentReference}</p>
+                </div>
+                ` : ''}
+                <div>
+                    <label class="font-semibold text-gray-700">Status:</label>
+                    <span class="status-badge ${proof.status === 'pending' ? 'bg-yellow-500 text-white' : 'bg-green-500 text-white'}">
+                        ${proof.status}
+                    </span>
+                </div>
+            </div>
+        `;
+
+        // Update verify button based on status
+        const verifyBtn = document.getElementById('verify-modal-btn');
+        if (proof.status === 'verified') {
+            verifyBtn.disabled = true;
+            verifyBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Already Verified';
+            verifyBtn.className = 'bg-gray-400 text-white px-6 py-3 rounded-lg cursor-not-allowed flex items-center';
+        } else {
+            verifyBtn.disabled = false;
+            verifyBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Verify Payment';
+            verifyBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition flex items-center';
         }
 
-        // Auto-refresh every 10 seconds
-        setInterval(() => {
-            loadOrders();
-            loadPaymentProofs();
-        }, 10000);
+        document.getElementById('image-modal').classList.remove('hidden');
+    }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 Initializing admin dashboard...');
-            loadOrders();
-            loadPaymentProofs();
-            
-            // Add some visual effects
-            setTimeout(() => {
-                document.querySelectorAll('.fade-in').forEach(el => {
-                    el.style.animation = 'fadeIn 0.5s ease-in';
+    // Verify payment proof
+    async function verifyPaymentProof(proofId) {
+        try {
+            const response = await fetch(`/api/payment-proofs/${proofId}/verify`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keepImage: true })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showNotification(`Payment proof verified successfully`, 'success');
+                loadPaymentProofs();
+                loadOrders(); // Reload orders to update payment status
+                closeImageModal();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            showNotification('Failed to verify payment proof: ' + error.message, 'error');
+        }
+    }
+
+    function verifyCurrentProof() {
+        if (currentModalProof) {
+            verifyPaymentProof(currentModalProof.id);
+        }
+    }
+
+    function closeImageModal() {
+        document.getElementById('image-modal').classList.add('hidden');
+        currentModalProof = null;
+    }
+
+    // Order management functions
+    async function updateOrderStatus(orderId, status) {
+        try {
+            const response = await fetch(`/api/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showNotification(`Order ${orderId} status updated to ${status}`, 'success');
+                loadOrders();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            showNotification('Failed to update order status: ' + error.message, 'error');
+        }
+    }
+
+    async function updatePaymentStatus(orderId, paymentStatus) {
+        try {
+            const response = await fetch(`/api/orders/${orderId}/payment`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paymentStatus, paymentMethod: 'manual' })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showNotification(`Order ${orderId} payment status updated`, 'success');
+                loadOrders();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            showNotification('Failed to update payment status: ' + error.message, 'error');
+        }
+    }
+
+    async function deleteOrder(orderId) {
+        if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
+            try {
+                const response = await fetch(`/api/orders/${orderId}`, {
+                    method: 'DELETE'
                 });
-            }, 100);
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Order ${orderId} deleted`, 'success');
+                    loadOrders();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification('Failed to delete order: ' + error.message, 'error');
+            }
+        }
+    }
+
+    async function clearAllOrders() {
+        if (confirm('Are you sure you want to clear ALL orders? This action cannot be undone.')) {
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Cleared ${result.message}`, 'success');
+                    loadOrders();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification('Failed to clear orders: ' + error.message, 'error');
+            }
+        }
+    }
+
+    // Quick actions
+    async function markAllPreparing() {
+        const receivedOrders = allOrders.filter(o => o.status === 'received');
+        for (const order of receivedOrders) {
+            await updateOrderStatus(order.orderId || order.id, 'preparing');
+        }
+        showNotification(`Marked ${receivedOrders.length} orders as preparing`, 'success');
+    }
+
+    async function markAllReady() {
+        const preparingOrders = allOrders.filter(o => o.status === 'preparing');
+        for (const order of preparingOrders) {
+            await updateOrderStatus(order.orderId || order.id, 'ready');
+        }
+        showNotification(`Marked ${preparingOrders.length} orders as ready`, 'success');
+    }
+
+    async function verifyAllProofs() {
+        const pendingProofs = allProofs.filter(p => p.status === 'pending');
+        for (const proof of pendingProofs) {
+            await verifyPaymentProof(proof.id);
+        }
+        showNotification(`Verified ${pendingProofs.length} payment proofs`, 'success');
+    }
+
+    // Export orders
+    async function exportOrders() {
+        try {
+            const response = await fetch('/api/orders/export');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `orders-export-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            showNotification('Orders exported successfully', 'success');
+        } catch (error) {
+            showNotification('Failed to export orders', 'error');
+        }
+    }
+
+    // Utility functions
+    function getOrderBorderColor(status) {
+        const colors = {
+            'received': 'border-gray-400',
+            'preparing': 'border-yellow-400',
+            'ready': 'border-green-400',
+            'completed': 'border-blue-400',
+            'cancelled': 'border-red-400'
+        };
+        return colors[status] || 'border-gray-400';
+    }
+
+    function getStatusBadgeColor(status) {
+        const colors = {
+            'received': 'bg-gray-500 text-white',
+            'preparing': 'bg-yellow-500 text-white',
+            'ready': 'bg-green-500 text-white',
+            'completed': 'bg-blue-500 text-white',
+            'cancelled': 'bg-red-500 text-white'
+        };
+        return colors[status] || 'bg-gray-500 text-white';
+    }
+
+    function getPaymentStatusBadgeColor(paymentStatus) {
+        const colors = {
+            'pending': 'bg-yellow-500 text-white',
+            'paid': 'bg-green-500 text-white',
+            'pending_verification': 'bg-orange-500 text-white',
+            'failed': 'bg-red-500 text-white',
+            'refunded': 'bg-purple-500 text-white'
+        };
+        return colors[paymentStatus] || 'bg-gray-500 text-white';
+    }
+
+    function formatTime(timestamp) {
+        return new Date(timestamp).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
         });
-    </script>
-</body>
-</html>
+    }
+
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        const bgColor = type === 'success' ? 'bg-green-500' : 
+                       type === 'error' ? 'bg-red-500' : 
+                       type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500';
+        
+        notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-2xl z-50 transform transition-all duration-300 fade-in`;
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas ${type === 'success' ? 'fa-check' : type === 'error' ? 'fa-exclamation-triangle' : 'fa-info-circle'} mr-3"></i>
+                <span class="font-semibold">${message}</span>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => notification.remove(), 300);
+        }, 4000);
+    }
+
+    // Auto-refresh every 10 seconds
+    setInterval(() => {
+        loadOrders();
+        loadPaymentProofs();
+    }, 10000);
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🚀 Initializing admin dashboard...');
+        loadOrders();
+        loadPaymentProofs();
+        
+        // Add some visual effects
+        setTimeout(() => {
+            document.querySelectorAll('.fade-in').forEach(el => {
+                el.style.animation = 'fadeIn 0.5s ease-in';
+            });
+        }, 100);
+    });
+</script>
