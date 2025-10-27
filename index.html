@@ -309,8 +309,7 @@
                 }
             } catch (error) {
                 console.error('Error loading menu:', error);
-                showNotification('Failed to load menu', 'error');
-                // Fallback to default menu
+                // Fallback to default menu (no blocking error toast shown to users)
                 loadDefaultMenu();
             }
         }
