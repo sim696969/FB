@@ -1,4 +1,4 @@
-// server.js - FIXED VERSION WITH CORRECTED API ENDPOINTS
+// server.js - COMPLETE FIXED VERSION
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
@@ -24,7 +24,7 @@ mongoose.connect(MONGODB_URI, {
 // Order Schema
 const orderSchema = new mongoose.Schema({
     id: { type: String, required: true, unique: true },
-    orderId: { type: String, required: true, unique: true }, // Added orderId field
+    orderId: { type: String, required: true, unique: true },
     customerName: { type: String, required: true },
     customerPhone: String,
     items: [{
@@ -44,7 +44,7 @@ const orderSchema = new mongoose.Schema({
     specialInstructions: String,
     timestamp: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
-    createdAt: { type: Date, default: Date.now } // Added createdAt
+    createdAt: { type: Date, default: Date.now }
 });
 
 const Order = mongoose.model('Order', orderSchema);
@@ -129,9 +129,14 @@ async function updateOrderPaymentStatus(orderId, paymentStatus, paymentMethod, c
             if (customerPhone) {
                 updateData.customerPhone = customerPhone;
             }
-            await Order.findOneAndUpdate({ orderId: orderId }, updateData);
+            await Order.findOneAndUpdate({ 
+                $or: [
+                    { id: orderId },
+                    { orderId: orderId }
+                ]
+            }, updateData);
         } else {
-            const order = fileOrders.find(o => o.orderId === orderId);
+            const order = fileOrders.find(o => o.id === orderId || o.orderId === orderId);
             if (order) {
                 order.paymentStatus = paymentStatus;
                 order.paymentMethod = paymentMethod;
@@ -185,32 +190,17 @@ async function cleanupPaymentProof(proofId) {
 }
 
 // Middleware
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(__dirname));
 app.use('/uploads', express.static('uploads'));
-app.use(express.json({ limit: '10mb' }));
 
-// Routes
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+// ========== API ROUTES ========== //
 
-app.get('/admin/orders', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'));
-});
-
-app.get('/payment/:orderId', (req, res) => {
-    res.sendFile(path.join(__dirname, 'payment.html'));
-});
-
-app.get('/payment-confirm', (req, res) => {
-    res.sendFile(path.join(__dirname, 'payment-confirm.html'));
-});
-
-// API Routes
-app.get('/api/status', (req, res) => {
+// Test endpoint
+app.get('/api/test-payment-proof', (req, res) => {
     res.json({ 
-        status: 'OK', 
-        db: isMongoConnected() ? 'mongodb' : 'file',
+        success: true, 
+        message: 'Payment proof API is working',
         timestamp: new Date().toISOString()
     });
 });
@@ -236,7 +226,7 @@ app.get('/api/menu', (req, res) => {
     });
 });
 
-// Create order - FIXED ENDPOINT
+// Create order
 app.post('/api/orders', async (req, res) => {
     try {
         const orderData = req.body;
@@ -267,7 +257,7 @@ app.post('/api/orders', async (req, res) => {
 
         const orderPayload = {
             id: orderId,
-            orderId: orderId, // Add orderId field
+            orderId: orderId,
             customerName: orderData.customer_name || orderData.customerName || 'Walk-in Customer',
             customerPhone: orderData.customer_phone || orderData.customerPhone || '',
             tableNumber: orderData.table_number || orderData.tableNumber || '',
@@ -301,7 +291,7 @@ app.post('/api/orders', async (req, res) => {
             success: true,
             order_id: orderId,
             message: 'Order received successfully!',
-            data: orderPayload // Return the order data for frontend
+            data: orderPayload
         });
         
     } catch (error) {
@@ -313,7 +303,7 @@ app.post('/api/orders', async (req, res) => {
     }
 });
 
-// Get all orders - FIXED RESPONSE FORMAT
+// Get all orders
 app.get('/api/orders', async (req, res) => {
     try {
         let orders = [];
@@ -337,7 +327,7 @@ app.get('/api/orders', async (req, res) => {
     }
 });
 
-// Get single order - FIXED ENDPOINT
+// Get single order
 app.get('/api/orders/:orderId', async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -346,7 +336,6 @@ app.get('/api/orders/:orderId', async (req, res) => {
         let order = null;
         
         if (isMongoConnected()) {
-            // Try both id and orderId fields
             order = await Order.findOne({ 
                 $or: [
                     { id: orderId },
@@ -379,7 +368,7 @@ app.get('/api/orders/:orderId', async (req, res) => {
     }
 });
 
-// Update order status - FIXED ENDPOINT
+// Update order status
 app.put('/api/orders/:orderId/status', async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -432,7 +421,7 @@ app.put('/api/orders/:orderId/status', async (req, res) => {
     }
 });
 
-// Update payment status - FIXED ENDPOINT
+// Update payment status
 app.put('/api/orders/:orderId/payment', async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -491,7 +480,7 @@ app.put('/api/orders/:orderId/payment', async (req, res) => {
     }
 });
 
-// Delete order - FIXED ENDPOINT
+// Delete order
 app.delete('/api/orders/:orderId', async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -636,15 +625,18 @@ app.get('/api/dashboard/stats', async (req, res) => {
     }
 });
 
-// Payment Proof Routes - FIXED ENDPOINTS
+// ========== PAYMENT PROOF ROUTES ========== //
+
+// Payment Proof Submission - FIXED ENDPOINT
 app.post('/api/payment-proof', async (req, res) => {
     try {
+        console.log('📸 Received payment proof submission');
         const { orderId, customerName, customerPhone, paymentReference, screenshot } = req.body;
         
-        if (!screenshot) {
+        if (!orderId || !customerName || !customerPhone || !screenshot) {
             return res.status(400).json({ 
                 success: false,
-                error: 'No screenshot provided' 
+                error: 'Missing required fields: orderId, customerName, customerPhone, and screenshot are required' 
             });
         }
 
@@ -652,8 +644,8 @@ app.post('/api/payment-proof', async (req, res) => {
         
         let screenshotPath = screenshot;
         
-        // If base64 image is provided and it's large, save as file
-        if (screenshot.startsWith('data:image/') && screenshot.length > 100000) {
+        // If base64 image is provided, save as file
+        if (screenshot.startsWith('data:image/')) {
             try {
                 const matches = screenshot.match(/^data:image\/([a-zA-Z]+);base64,/);
                 const extension = matches ? matches[1] : 'jpg';
@@ -665,31 +657,42 @@ app.post('/api/payment-proof', async (req, res) => {
                 console.log(`💾 Saved screenshot as file: ${filename}`);
             } catch (fileError) {
                 console.error('Error saving screenshot as file:', fileError);
+                // Continue with base64 if file save fails
             }
         }
 
         const proofData = {
             id: proofId,
-            orderId,
-            customerName,
-            customerPhone,
-            paymentReference,
+            orderId: orderId,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            paymentReference: paymentReference || '',
             screenshot: screenshotPath,
             submittedAt: new Date(),
             status: 'pending'
         };
 
-        // Save to database
+        console.log('💾 Saving payment proof:', proofData);
+
+        // Save to database or file
         if (isMongoConnected()) {
             const proof = new PaymentProof(proofData);
             await proof.save();
+            console.log('✅ Payment proof saved to MongoDB');
         } else {
             fileProofs.push(proofData);
             saveFileProofs();
+            console.log('✅ Payment proof saved to file');
         }
-        
-        console.log(`📸 Payment proof submitted for order ${orderId}`);
-        
+
+        // Update order payment status
+        try {
+            await updateOrderPaymentStatus(orderId, 'pending_verification', 'qr_screenshot', customerPhone);
+            console.log('✅ Order payment status updated');
+        } catch (updateError) {
+            console.error('Warning: Could not update order status:', updateError);
+        }
+
         res.json({ 
             success: true, 
             proofId: proofId,
@@ -697,7 +700,7 @@ app.post('/api/payment-proof', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Payment proof error:', error);
+        console.error('❌ Payment proof submission error:', error);
         res.status(500).json({ 
             success: false,
             error: 'Failed to submit payment proof: ' + error.message 
@@ -850,6 +853,24 @@ app.delete('/api/payment-proofs', async (req, res) => {
     }
 });
 
+// ========== HTML ROUTES ========== //
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/admin/orders', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/payment/:orderId', (req, res) => {
+    res.sendFile(path.join(__dirname, 'payment.html'));
+});
+
+app.get('/payment-confirm', (req, res) => {
+    res.sendFile(path.join(__dirname, 'payment-confirm.html'));
+});
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({ 
@@ -862,17 +883,6 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-
-// Cleanup on server start
-function cleanupOrphanedFiles() {
-    try {
-        const files = fs.readdirSync(uploadsDir);
-        const proofFiles = files.filter(file => file.startsWith('proof-'));
-        console.log(`🔄 Uploads directory ready with ${proofFiles.length} files`);
-    } catch (error) {
-        console.error('Error cleaning up orphaned files:', error);
-    }
-}
 
 // Start server
 app.listen(PORT, () => {
@@ -888,8 +898,6 @@ app.listen(PORT, () => {
 💰 Payment: /payment/:orderId
 📷 Proof Upload: /payment-confirm
     `);
-    
-    cleanupOrphanedFiles();
 });
 
 module.exports = app;

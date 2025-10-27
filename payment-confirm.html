@@ -254,6 +254,7 @@
         // Load order details
         async function loadOrderDetails() {
             try {
+                console.log('Loading order details for:', orderId);
                 const response = await fetch(`/api/orders/${orderId}`);
                 const result = await response.json();
                 
@@ -277,7 +278,7 @@
             const orderDetailsHtml = `
                 <div class="flex justify-between items-start">
                     <div>
-                        <h3 class="text-lg font-bold text-gray-800">${order.orderId}</h3>
+                        <h3 class="text-lg font-bold text-gray-800">${order.orderId || order.id}</h3>
                         <p class="text-gray-600">${order.customerName || 'Customer'}</p>
                         ${order.tableNumber ? `<p class="text-sm text-gray-500">${order.tableNumber}</p>` : ''}
                     </div>
@@ -386,7 +387,7 @@
         document.getElementById('customer-name').addEventListener('input', checkFormValidity);
         document.getElementById('customer-phone').addEventListener('input', checkFormValidity);
 
-        // Submit payment proof
+        // Submit payment proof - FIXED VERSION
         async function submitPaymentProof() {
             const name = document.getElementById('customer-name').value.trim();
             const phone = document.getElementById('customer-phone').value.trim();
@@ -406,10 +407,15 @@
             submitBtn.disabled = true;
 
             try {
-                // Submit payment proof
-                const proofResponse = await fetch('/api/payment-proofs', {
+                console.log('📤 Submitting payment proof...');
+                
+                // Submit payment proof to the correct endpoint
+                const proofResponse = await fetch('/api/payment-proof', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({
                         orderId: orderId,
                         customerName: name,
@@ -419,27 +425,21 @@
                     })
                 });
 
-                const proofResult = await proofResponse.json();
-
-                if (!proofResult.success) {
-                    throw new Error(proofResult.error);
+                console.log('📥 Response status:', proofResponse.status);
+                
+                // Check if response is JSON
+                const contentType = proofResponse.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const textResponse = await proofResponse.text();
+                    console.error('❌ Non-JSON response:', textResponse.substring(0, 200));
+                    throw new Error('Server returned HTML instead of JSON. Please contact support.');
                 }
 
-                // Update order payment status
-                const orderResponse = await fetch(`/api/orders/${orderId}/payment`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        paymentStatus: 'pending_verification',
-                        paymentMethod: 'qr_screenshot',
-                        customerPhone: phone
-                    })
-                });
+                const proofResult = await proofResponse.json();
+                console.log('📄 Proof submission result:', proofResult);
 
-                const orderResult = await orderResponse.json();
-
-                if (!orderResult.success) {
-                    console.warn('Order update failed, but proof was submitted');
+                if (!proofResult.success) {
+                    throw new Error(proofResult.error || 'Unknown error from server');
                 }
 
                 // Show success modal
@@ -452,12 +452,22 @@
                 }, 1000);
 
             } catch (error) {
-                console.error('Submission error:', error);
+                console.error('❌ Submission error:', error);
                 loadingOverlay.classList.add('hidden');
                 submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i><span>Submit Proof</span>';
                 submitBtn.disabled = false;
                 
-                alert('Failed to submit payment proof. Please try again. Error: ' + error.message);
+                // More user-friendly error message
+                let errorMessage = 'Failed to submit payment proof. ';
+                if (error.message.includes('HTML instead of JSON')) {
+                    errorMessage += 'Server configuration error. Please contact support.';
+                } else if (error.message.includes('Failed to fetch')) {
+                    errorMessage += 'Network error. Please check your connection.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                alert(errorMessage);
             }
         }
 
