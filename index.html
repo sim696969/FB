@@ -6,24 +6,49 @@
     <title>Brew & Bites Café - Order Online</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts from external repo: Inter (body) + Playfair Display (headings) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
+        /* Use Inter for body and Playfair Display for headings (closer to external repo) */
+        :root { --heading-font: 'Playfair Display', serif; --body-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+
+        /* Design tokens inspired by external repo (warm cafe palette) */
         :root {
-            --primary: #8B4513;
-            --secondary: #D2691E;
-            --accent: #F4A460;
-            --light: #F5F5DC;
-            --dark: #3E2723;
-            --text: #5D4037;
-            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            /* Primary colors */
+            --primary: #8B4513; /* saddle brown */
+            --primary-foreground: #fff;
+            --secondary: #D2691E; /* chocolate orange */
+            --secondary-foreground: #fff;
+            --accent: #F4A460; /* sandy */
+
+            /* UI neutrals */
+            --background: #F5F5DC; /* beige */
+            --foreground: #5D4037; /* deep brown text */
+            --muted: #EDE7E1;
+            --card: #ffffff;
+
+            /* Shadows & radius */
+            --shadow-warm: 0 8px 30px rgba(139,69,19,0.08);
+            --shadow-card: 0 6px 18px rgba(0,0,0,0.06);
+            --shadow-hover: 0 10px 30px rgba(139,69,19,0.12);
+            --radius: 16px;
+
+            --text: var(--foreground);
             --transition: all 0.3s ease;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: var(--body-font);
             background: linear-gradient(135deg, #F5F5DC 0%, #F0E6D2 100%);
             color: var(--text);
+        }
+
+        /* Headings use Playfair Display for a nicer cafe-like look */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--heading-font);
+            letter-spacing: -0.01em;
         }
 
         .menu-item-card {
@@ -41,6 +66,8 @@
         .add-to-cart-btn {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             transition: var(--transition);
+            box-shadow: var(--shadow-card);
+            border-radius: calc(var(--radius) - 4px);
         }
 
         .add-to-cart-btn:hover {
@@ -65,8 +92,10 @@
         }
 
         .checkout-btn {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
             transition: var(--transition);
+            box-shadow: var(--shadow-warm);
+            border-radius: calc(var(--radius) - 4px);
         }
 
         .checkout-btn:hover:not(:disabled) {
@@ -99,6 +128,33 @@
             animation: spin 1s linear infinite;
         }
 
+        /* Token-backed utility classes */
+        .text-primary { color: var(--primary) !important; }
+        .text-accent { color: var(--accent) !important; }
+        .text-muted { color: var(--muted) !important; }
+        .bg-muted { background: var(--muted) !important; }
+        .border-accent { border-color: var(--accent) !important; }
+
+        .hero-gradient { background: linear-gradient(90deg, var(--primary), var(--secondary)); }
+        .hero-sub { color: rgba(255,255,255,0.9); }
+
+        .header-cart-btn-custom { background: var(--muted); color: var(--foreground); }
+        .header-cart-btn-custom:hover { background: #efe6dd; }
+
+        .focus-ring-primary:focus { box-shadow: 0 0 0 4px rgba(139,69,19,0.08); border-color: var(--primary); outline: none; }
+
+        .btn-primary { background: linear-gradient(90deg, var(--primary), var(--secondary)); color: var(--primary-foreground); }
+        .badge-accent { background: var(--accent); color: var(--secondary-foreground); padding: 0.25rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+
+        .tip-option:hover { background: var(--muted) !important; }
+
+    /* Additional token utilities */
+    .tip-selected { background: var(--accent) !important; color: white !important; }
+    .btn-accent { background: var(--secondary); color: white; }
+    .btn-accent:hover { filter: brightness(0.95); }
+    .active-category { background: #fff6f0; color: var(--primary); border-color: var(--accent); transform: scale(1.05); }
+    .header-cart-active { background: #fff6f0 !important; color: var(--primary) !important; }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -120,17 +176,17 @@
         <div class="container mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                    <i class="fas fa-coffee text-2xl text-amber-700"></i>
+                    <i class="fas fa-coffee text-2xl text-primary"></i>
                     <div>
                         <h1 class="text-2xl font-bold text-gray-800">Brew & Bites</h1>
                         <p class="text-sm text-gray-600">Order Online</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <!-- Header cart button -->
-                    <button id="header-cart-btn" class="relative bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-2 rounded-lg flex items-center space-x-2">
+                    <!-- Header cart button (now also acts as Pay when valid) -->
+                    <button id="header-cart-btn" class="relative header-cart-btn-custom px-3 py-2 rounded-lg flex items-center space-x-2">
                         <i class="fas fa-shopping-cart"></i>
-                        <span class="text-sm">Cart</span>
+                        <span id="header-cart-label" class="text-sm">Cart</span>
                         <span id="header-cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
                     </button>
                 </div>
@@ -143,11 +199,11 @@
             <!-- Main Content -->
             <div class="lg:col-span-2">
                 <!-- Hero Section -->
-                <div class="bg-gradient-to-r from-amber-700 to-amber-800 rounded-2xl p-6 text-white mb-6">
+                <div class="hero-gradient rounded-2xl p-6 text-white mb-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h2 class="text-2xl font-bold mb-2">Fresh Coffee & Pastries</h2>
-                            <p class="text-amber-100">Order your favorites and pay with QR code</p>
+                            <h2 class="text-3xl font-bold mb-2 hero-title">Fresh Coffee & Pastries</h2>
+                            <p class="hero-sub">Order your favorites and pay with QR code</p>
                         </div>
                         <div class="bg-white/20 rounded-full p-3">
                             <i class="fas fa-mug-hot text-2xl"></i>
@@ -157,10 +213,10 @@
 
                 <!-- Category Filter -->
                 <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
-                    <button class="category-btn px-4 py-2 bg-white rounded-full border border-amber-200 text-amber-700 font-medium whitespace-nowrap active" data-category="all">
+                    <button class="category-btn px-4 py-2 bg-white rounded-full border border-accent text-primary font-medium whitespace-nowrap active" data-category="all">
                         All Items
                     </button>
-                    <button class="category-btn px-4 py-2 bg-white rounded-full border border-amber-200 text-gray-600 font-medium whitespace-nowrap" data-category="coffee">
+                    <button class="category-btn px-4 py-2 bg-white rounded-full border border-accent text-gray-600 font-medium whitespace-nowrap" data-category="coffee">
                         Coffee
                     </button>
                     <button class="category-btn px-4 py-2 bg-white rounded-full border border-amber-200 text-gray-600 font-medium whitespace-nowrap" data-category="pastries">
@@ -188,7 +244,7 @@
                 <div class="bg-white rounded-2xl shadow-lg sticky top-24">
                     <div class="p-6 border-b border-gray-200">
                         <h3 class="text-xl font-bold text-gray-800 flex items-center">
-                            <i class="fas fa-shopping-cart mr-2 text-amber-700"></i>
+                            <i class="fas fa-shopping-cart mr-2 text-primary"></i>
                             Your Order
                         </h3>
                     </div>
@@ -207,20 +263,20 @@
                         <!-- Customer Info -->
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Your Name *</label>
-                            <input type="text" id="customer-name" placeholder="Enter your name" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                <input type="text" id="customer-name" placeholder="Enter your name" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus-ring-primary">
                         </div>
 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">School ID</label>
                                 <input type="text" id="table-number" placeholder="(e.g. DCS2410004)" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus-ring-primary">
                         </div>
 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Special Instructions</label>
                             <textarea id="special-instructions" placeholder="Any special requests..." 
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus-ring-primary resize-none"
                                       rows="2"></textarea>
                         </div>
 
@@ -228,13 +284,13 @@
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Add Tip</label>
                             <div class="flex space-x-2 mb-2">
-                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-amber-100 transition" data-amount="0">
+                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium" data-amount="0">
                                     No Tip
                                 </button>
-                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-amber-100 transition" data-amount="2">
+                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium" data-amount="2">
                                     RM 2
                                 </button>
-                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-amber-100 transition" data-amount="5">
+                                <button class="tip-option flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium" data-amount="5">
                                     RM 5
                                 </button>
                             </div>
@@ -250,21 +306,21 @@
                                 <span class="text-gray-600">Tip</span>
                                 <span id="tip-amount" class="font-medium">RM 0.00</span>
                             </div>
-                            <div class="flex justify-between text-lg font-bold border-t pt-2">
+                                <div class="flex justify-between text-lg font-bold border-t pt-2">
                                 <span>Total</span>
-                                <span id="total-amount" class="text-amber-700">RM 0.00</span>
+                                <span id="total-amount" class="text-primary">RM 0.00</span>
                             </div>
                         </div>
 
-                        <!-- Checkout Button -->
+                        <!-- View Cart / (sidebar) - payment moved to header cart button -->
                         <button id="checkout-btn" disabled
                                 class="checkout-btn w-full py-4 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
-                            <i class="fas fa-qrcode"></i>
-                            <span>Proceed to QR Payment</span>
+                            <i class="fas fa-shopping-cart"></i>
+                            <span>View Cart</span>
                         </button>
 
                         <p class="text-xs text-gray-500 text-center mt-3">
-                            You'll pay with QR code on the next screen
+                            Payment is handled from the Cart button (top-right). Open cart to review or just click the Cart button to Pay.
                         </p>
                     </div>
                 </div>
@@ -287,7 +343,7 @@
             <div class="p-4 max-h-96 overflow-y-auto" id="modal-cart-items">
                 <!-- modal cart items rendered here -->
             </div>
-            <div class="p-4 border-t bg-gray-50">
+                <div class="p-4 border-t bg-gray-50">
                 <div class="flex justify-between mb-2">
                     <span class="text-sm text-gray-600">Subtotal</span>
                     <span id="modal-subtotal" class="font-medium">RM 0.00</span>
@@ -298,7 +354,7 @@
                 </div>
                 <div class="flex justify-between font-bold text-lg mb-4">
                     <span>Total</span>
-                    <span id="modal-total" class="text-amber-700">RM 0.00</span>
+                    <span id="modal-total" class="text-primary">RM 0.00</span>
                 </div>
                 <button id="modal-checkout-btn" class="w-full checkout-btn py-3 text-white font-bold rounded-lg flex items-center justify-center space-x-2">
                     <i class="fas fa-qrcode"></i>
@@ -392,7 +448,7 @@
                              class="w-full h-48 object-cover" 
                              onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIwLjM1ZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
                         <div class="absolute top-3 right-3">
-                            <span class="bg-amber-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                            <span class="badge-accent">
                                 ${item.category}
                             </span>
                         </div>
@@ -400,7 +456,7 @@
                     <div class="p-4">
                         <div class="flex justify-between items-start mb-2">
                             <h4 class="font-bold text-gray-800 text-lg">${item.name}</h4>
-                            <span class="text-amber-700 font-bold text-lg">RM${item.price.toFixed(2)}</span>
+                            <span class="text-primary font-bold text-lg">RM${item.price.toFixed(2)}</span>
                         </div>
                         <p class="text-gray-600 text-sm mb-4">${item.description}</p>
                         <button class="add-to-cart-btn w-full py-3 text-white rounded-lg font-medium flex items-center justify-center space-x-2"
@@ -418,8 +474,8 @@
             // Category filters
             document.querySelectorAll('.category-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active', 'bg-amber-100', 'text-amber-700'));
-                    this.classList.add('active', 'bg-amber-100', 'text-amber-700');
+                    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active', 'active-category'));
+                    this.classList.add('active', 'active-category');
                     currentCategory = this.dataset.category;
                     displayMenuItems();
                 });
@@ -428,8 +484,8 @@
             // Tip options
             document.querySelectorAll('.tip-option').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    document.querySelectorAll('.tip-option').forEach(b => b.classList.remove('bg-amber-500', 'text-white'));
-                    this.classList.add('bg-amber-500', 'text-white');
+                    document.querySelectorAll('.tip-option').forEach(b => b.classList.remove('tip-selected'));
+                    this.classList.add('tip-selected');
                     tipAmount = parseFloat(this.dataset.amount);
                     updateCartTotals();
                 });
@@ -531,13 +587,30 @@
             }
             updateCartTotals();
             validateCheckout();
-            // update header cart count
-            const totalCount = cart.reduce((s, i) => s + (i.quantity || 0), 0);
-            if (headerCartCount) headerCartCount.textContent = totalCount;
-            if (headerCartBtn) {
-                headerCartBtn.classList.remove('animate-pulse');
-                if (totalCount > 0) headerCartBtn.classList.add('animate-pulse');
-            }
+                // update header cart count
+                const totalCount = cart.reduce((s, i) => s + (i.quantity || 0), 0);
+                if (headerCartCount) headerCartCount.textContent = totalCount;
+                if (headerCartBtn) {
+                    headerCartBtn.classList.remove('animate-pulse');
+                    if (totalCount > 0) headerCartBtn.classList.add('animate-pulse');
+
+                    // Update header cart label to act as Pay when checkout is valid
+                    const headerLabel = document.getElementById('header-cart-label');
+                    const totalText = totalAmount ? totalAmount.textContent : '';
+                    const isReady = validateCheckout();
+                    if (headerLabel) {
+                        if (isReady) {
+                            // show Pay with amount
+                            headerLabel.textContent = `Pay ${totalText.replace('RM ', 'RM ' )}`;
+                            headerCartBtn.classList.remove('bg-amber-100', 'text-amber-700');
+                            headerCartBtn.classList.add('bg-green-600', 'text-white');
+                        } else {
+                            headerLabel.textContent = 'Cart';
+                            headerCartBtn.classList.remove('bg-green-600', 'text-white');
+                            headerCartBtn.classList.add('bg-amber-100', 'text-amber-700');
+                        }
+                    }
+                }
         }
 
         function updateCartTotals() {
@@ -631,17 +704,42 @@
             }, 3000);
         }
 
-        // Attach checkout to button
-        checkoutBtn.addEventListener('click', checkout);
+        // Attach checkout/view-cart behavior to sidebar button
+        checkoutBtn.addEventListener('click', () => {
+            // Sidebar button acts as 'View Cart' now
+            if (cartModal) cartModal.classList.remove('hidden');
+            modalSubtotal.textContent = subtotalAmount.textContent || 'RM 0.00';
+            modalTip.textContent = tipAmountDisplay.textContent || 'RM 0.00';
+            modalTotal.textContent = totalAmount.textContent || 'RM 0.00';
+        });
 
-        // Header cart button opens modal
+        // Header cart button opens modal or acts as Pay when valid
         if (headerCartBtn) {
             headerCartBtn.addEventListener('click', () => {
-                if (cartModal) cartModal.classList.remove('hidden');
-                // ensure modal reflects latest totals
-                modalSubtotal.textContent = subtotalAmount.textContent || 'RM 0.00';
-                modalTip.textContent = tipAmountDisplay.textContent || 'RM 0.00';
-                modalTotal.textContent = totalAmount.textContent || 'RM 0.00';
+                const ready = validateCheckout();
+                if (ready) {
+                    // perform checkout directly from header Pay button
+                    // give quick feedback without replacing innerHTML (preserve count badge)
+                    const headerLabelEl = document.getElementById('header-cart-label');
+                    if (headerLabelEl) headerLabelEl.textContent = 'Processing...';
+                    headerCartBtn.disabled = true;
+                    headerCartBtn.classList.add('opacity-70');
+                    // small delay so UI updates before heavy network
+                    setTimeout(() => {
+                        checkout().finally(() => {
+                            // restore label and state after attempt
+                            headerCartBtn.disabled = false;
+                            headerCartBtn.classList.remove('opacity-70');
+                            updateCartDisplay();
+                        });
+                    }, 120);
+                } else {
+                    // open modal to let user fill details or view cart
+                    if (cartModal) cartModal.classList.remove('hidden');
+                    modalSubtotal.textContent = subtotalAmount.textContent || 'RM 0.00';
+                    modalTip.textContent = tipAmountDisplay.textContent || 'RM 0.00';
+                    modalTotal.textContent = totalAmount.textContent || 'RM 0.00';
+                }
             });
         }
 
